@@ -83,6 +83,6 @@ Attachment files (the actual SI and BL documents) are not viewable in the app. O
 
 Blank page, no console errors: check web/index.html exists and its script tag points to /src/main.jsx, not /web/src/main.jsx.
 
-Command not found python on macOS: use python3 instead, or run echo alias python equals /usr/bin/python3 into your zshrc.
+Command not found python on macOS: use python3 instead
 
-Inbox or review queue look empty: you are likely still on the placeholder reports.json. See Getting reports.json above.
+Inbox or review queue look empty: you are likely still on the placeholder reports.json. See [Getting reports.json](## Getting reports.json) above.
