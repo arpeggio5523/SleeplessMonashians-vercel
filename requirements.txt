@@ -1,14 +1,17 @@
-# document ingestion
-pdfplumber>=0.11
-python-docx>=1.1
-openpyxl>=3.1
+# --- pipeline (required) ---
+pdfplumber>=0.11          # PDF text extraction (fallback when poppler absent)
+python-docx>=1.1          # DOCX attachments
+openpyxl>=3.1             # XLSX attachments
 
-# tests
+# --- Gemini fallback (required for --llm) ---
+google-genai>=1.0
+
+# --- tests ---
 pytest>=8.0
 
-# phase 2 (platform owner)
+# --- dev tools ---
+reportlab>=4.0            # ONLY needed by the organisers' generate.py (sweep.py)
+
+# --- platform (X) — uncomment when building the API ---
 # fastapi>=0.110,<1.0
 # uvicorn[standard]>=0.27,<1.0
-
-# phase 1 (intelligence owner) — Gemini fallback
-# google-generativeai>=0.8

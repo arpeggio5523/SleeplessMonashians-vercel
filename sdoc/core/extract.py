@@ -62,7 +62,30 @@ BL_MARKERS = ("BILL OF LADING",)
 OTHER_MARKERS = ("COMMERCIAL INVOICE", "PACKING LIST", "CERTIFICATE OF ORIGIN",
                  "ARRIVAL NOTICE", "DELIVERY ORDER")
 
-CONF_COLON, CONF_WIDE, CONF_TIGHT = 0.95, 0.85, 0.70
+CONF_COLON, CONF_WIDE, CONF_WRAP, CONF_TIGHT = 0.95, 0.85, 0.80, 0.70
+
+# Every label string we know about, for detecting when a "value" captured by a
+# loose pattern is really just the tail of a longer label.
+ALL_LABELS = tuple(sorted({l.upper() for labs in LABELS.values() for l in labs},
+                          key=len, reverse=True))
+
+
+def _is_label_fragment(label: str, captured: str) -> bool:
+    """
+    True when 'label captured' reconstructs a longer known label.
+
+    In wide PDF columns a long label can occupy the whole line, e.g.
+
+        Notify Party/Intermediate Consignee
+                                     CERIEX
+
+    A loose pattern then matches the short label 'Notify' and captures
+    'Party/Intermediate Consignee' as if it were a company name, producing a
+    confident, entirely fabricated mismatch.
+    """
+    joined = f"{label} {captured}".upper().strip()
+    return any(known.startswith(joined) or joined.startswith(known)
+               for known in ALL_LABELS if len(known) > len(label))
 
 
 def detect_doc_type(text: str) -> str:
@@ -81,13 +104,28 @@ def detect_doc_type(text: str) -> str:
 
 def _patterns(label: str) -> list[tuple[re.Pattern, float]]:
     esc = re.escape(label)
-    # optional TOTAL prefix; optional trailing parenthetical before the separator
-    head = r"^\s*(?:TOTAL\s+)?" + esc + r"\s*(?:\([^)]*\))?\s*"
+    # optional TOTAL prefix; then up to 4 characters of glyph noise; then an
+    # optional parenthetical; then the separator.
+    #
+    # The noise allowance matters. Documents carry bilingual labels such as
+    # "Gross Weight<CJK>(KGS):". Different PDF extractors render unmappable
+    # glyphs differently: poppler emits non-ASCII placeholders (stripped by
+    # strip_non_ascii), while pdfplumber substitutes ASCII letters such as
+    # "nn", which survive and break an exact label match. Allowing a few
+    # junk characters makes the match extractor-independent.
+    head = (r"^\s*(?:TOTAL\s+)?" + esc + r"[^\s:\uff1a]{0,4}"
+            r"\s*(?:\([^)]*\))?\s*")
     return [
         (re.compile(head + r"[::]\s*(\S.*)$", re.I), CONF_COLON),
         (re.compile(head + r"\s{2,}(\S.*)$", re.I), CONF_WIDE),
         (re.compile(head + r"\s+(\S.*)$", re.I), CONF_TIGHT),
     ]
+
+
+def _alone_on_line(label: str) -> re.Pattern:
+    """Label occupying a whole line, with its value wrapped to the next."""
+    return re.compile(r"^\s*(?:TOTAL\s+)?" + re.escape(label) +
+                      r"\s*(?:\([^)]*\))?\s*[::]?\s*$", re.I)
 
 
 def extract_field(field: str, lines: list[str], path: str) -> ExtractedField:
@@ -102,6 +140,30 @@ def extract_field(field: str, lines: list[str], path: str) -> ExtractedField:
     which produces a false discrepancy.
     """
     for label in LABELS[field]:
+        # Label alone on its line: the value wrapped to the following line.
+        alone = _alone_on_line(label)
+        for idx, line in enumerate(lines):
+            if not alone.match(strip_non_ascii(line)):
+                continue
+            for nxt in range(idx + 1, min(idx + 3, len(lines))):
+                cand = strip_non_ascii(lines[nxt])
+                if not cand.strip():
+                    continue
+                if not lines[nxt][:1].isspace():   # must be an indented continuation
+                    break
+                raw = cand.strip()
+                if is_blank(raw):
+                    break
+                value = normalize(field, raw)
+                if value is None:
+                    break
+                return ExtractedField(
+                    value=value, raw=raw, confidence=CONF_WRAP, method="rule",
+                    source=Source(file=path, line=nxt + 1, label_seen=label,
+                                  snippet=lines[nxt].strip()[:200]),
+                )
+            break
+
         for pattern, conf in _patterns(label):
             for idx, line in enumerate(lines):
                 ascii_line = strip_non_ascii(line)
@@ -110,6 +172,8 @@ def extract_field(field: str, lines: list[str], path: str) -> ExtractedField:
                     continue
                 raw = m.group(1).strip()
                 if raw.startswith(("|", ":")):
+                    continue
+                if _is_label_fragment(label, raw):
                     continue
                 if is_blank(raw):
                     # The document says this field is empty. Believe it.

@@ -27,6 +27,15 @@ def find(*names) -> Path:
              "Run this from the folder holding the two extracted data folders.")
 
 
+_transcript: list[str] = []
+_print = print
+
+
+def print(*args, **kwargs):          # noqa: A001 - deliberate shadow
+    _print(*args, **kwargs)
+    _transcript.append(" ".join(str(a) for a in args))
+
+
 BUNDLE = find("sdoc-hackathon-bundle", "bundle")
 DOCKER = find("sdoc-hackathon-docker", "docker")
 
@@ -70,15 +79,35 @@ def main() -> None:
     ap.add_argument("--report", help="also write the full result objects here")
     ap.add_argument("--email", help="inspect a single email and exit")
     ap.add_argument("--no-score", action="store_true")
+    ap.add_argument("--md", help="save this run's output as Markdown")
+    ap.add_argument("--llm", action="store_true",
+                    help="enable the Gemini fallback for low-confidence cases")
     args = ap.parse_args()
 
     source = FolderSource(BUNDLE)
+
+    llm_classify = None
+    if args.llm:
+        from sdoc.llm.gemini import (classify_email, prefetch_classifications,
+                                     stats as llm_stats)
+        llm_classify = classify_email
+
+        # Batch the low-confidence cases into a few requests before the main
+        # run. Free-tier quotas count REQUESTS, not emails, so this turns ~27
+        # calls into ~2. Results land in the cache the per-email hook reads.
+        if not args.email:
+            from sdoc.core.classify import classify as rule_classify
+            from sdoc.core.contract import CONFIDENCE_THRESHOLD
+            unsure = [e for e in source.emails()
+                      if rule_classify(e).confidence < CONFIDENCE_THRESHOLD]
+            if unsure:
+                prefetch_classifications(unsure)
 
     if args.email:
         show_one(args.email, source)
         return
 
-    results = run(source)
+    results = run(source, llm_classify=llm_classify)
     submission = to_submission(results)
     Path(args.out).write_text(json.dumps(submission, indent=1), encoding="utf-8")
     print(f"wrote {args.out}  ({len(submission)} emails)")
@@ -104,6 +133,18 @@ def main() -> None:
     print(f"  end-to-end     {e2e['rate']:.4f}   ({e2e['success']}/{e2e['total']})")
     print(f"  escalation     R {rel['escalation_recall']:.3f} "
           f"P {rel['escalation_precision']:.3f}")
+    if args.llm:
+        print(f"  llm            {llm_stats()}")
+
+    if args.md:
+        from datetime import datetime
+        mode = "rules + Gemini fallback" if args.llm else "rules only"
+        Path(args.md).write_text(
+            f"# Pipeline run\n\n"
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M')} \u00b7 {mode}\n\n"
+            f"```\n" + "\n".join(_transcript).rstrip() + "\n```\n",
+            encoding="utf-8")
+        _print(f"wrote {args.md}")
 
 
 if __name__ == "__main__":

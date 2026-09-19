@@ -1,18 +1,38 @@
-# Python
+# --- Python ---
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
 venv/
 
-# Generated output
-reports.json
+# --- generated, regenerable in one command ---
+# 1.4 MB, rebuilt by: python run_pipeline.py --report
+reports.json          
+docs/reports.json
+# held-out datasets, rebuilt by: python sweep.py
+heldout/
+sweep_*/
+compare_*/
+poppler/
 
-# Secrets — never commit an API key
+# --- supplied data: extract the organisers' zips here, never commit ---
+# sdoc-hackathon-docker contains ground_truth.json (the answer key).
+sdoc-hackathon-bundle/
+sdoc-hackathon-docker/
+
+# --- secrets ---
 .env
 *.key
 service-account*.json
 
-# OS
+# --- OS ---
 .DS_Store
 Thumbs.db
+
+# --- DO commit the LLM cache -------------------------------------------
+# 27 small JSON files holding the classifications Gemini already returned.
+# Committing them means teammates, CI and the container reproduce our exact
+# numbers with zero API calls, so a rate limit can never break the demo.
+!.cache/
+!.cache/llm/
+!.cache/llm/*.json

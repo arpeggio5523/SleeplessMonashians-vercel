@@ -8,6 +8,7 @@ result, so a scoring gap between laptops never surprises you later.
 
     python verify_setup.py
 """
+import hashlib
 import importlib
 import json
 import shutil
@@ -97,17 +98,29 @@ for p in att_files:
     ext_counts[p.suffix.lower()] = ext_counts.get(p.suffix.lower(), 0) + 1
 ok("formats: " + ", ".join(f"{k} {v}" for k, v in sorted(ext_counts.items())))
 
+# The supplied dataset is exactly `generate.py --seed 42 --n 500`.
+# generate.py defaults --out to data_v2 itself, so running it without --out
+# silently overwrites the benchmark. This checksum catches that immediately.
+GT_SHA256 = "d2d84f55cd68e9e0e7a62f07616d49968f44be2132c7b6b69a77213adfc0babe"
+
 gt_path = DOCKER / "data_v2" / "ground_truth.json"
 if gt_path.exists():
-    gt = json.loads(gt_path.read_text(encoding="utf-8"))
-    if len(gt) == 520:
+    raw = gt_path.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    gt = json.loads(raw.decode("utf-8"))
+    if digest == GT_SHA256:
         n_mm = sum(1 for r in gt.values() if r.get("status") == "MISMATCH")
-        ok(f"ground truth: 520 records, {n_mm} MISMATCH emails")
+        ok(f"ground truth intact: 520 records, {n_mm} MISMATCH (sha256 matches)")
     else:
-        bad(f"ground truth has {len(gt)} records (expected 520)", "Re-extract the docker zip")
+        bad("ground truth does NOT match the supplied benchmark",
+            "data_v2 was overwritten, probably by generate.py without --out.\n"
+            "       Restore with:\n"
+            "         pip install reportlab\n"
+            "         python " + str(DOCKER / "data_v2" / "generate.py") +
+            " --seed 42 --n 500 --out " + str(DOCKER / "data_v2") + "\n"
+            "       Then re-run this script. NEVER run generate.py without --out.")
 else:
-    bad("ground_truth.json not found",
-        f"Expected at {gt_path}")
+    bad("ground_truth.json not found", f"Expected at {gt_path}")
 
 # ---------------------------------------------------------------- 4. Scorer
 print("\n4. Official scorer")
@@ -213,13 +226,13 @@ for ext, reader, needle in checks:
 # ---------------------------------------------------------------- Summary
 print("\n" + "=" * 66)
 if problems:
-    print(f"  {len(problems)} PROBLEM(S) — fix these before running baseline.py")
+    print(f"  {len(problems)} PROBLEM(S) — fix these before running run_pipeline.py")
     print("=" * 66)
     for m, f in problems:
         print(f"\n  * {m}\n    -> {f}")
     sys.exit(1)
 
-print("  ALL CHECKS PASSED — you are ready to run baseline.py")
+print("  ALL CHECKS PASSED — you are ready to run run_pipeline.py")
 print("=" * 66)
 if warnings:
     print(f"\n  {len(warnings)} note(s), none blocking:")
