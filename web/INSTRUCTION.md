@@ -85,4 +85,4 @@ Blank page, no console errors: check web/index.html exists and its script tag po
 
 Command not found python on macOS: use python3 instead
 
-Inbox or review queue look empty: you are likely still on the placeholder reports.json. See [Getting reports.json](## Getting reports.json) above.
+Inbox or review queue look empty: you are likely still on the placeholder reports.json. See [Getting reports.json](#getting-reportsjson) above.
