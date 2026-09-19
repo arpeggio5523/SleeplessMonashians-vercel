@@ -15,27 +15,26 @@ SleeplessMonashians Hackathon/
 │   ├── core/                  contract, ingest, extract, classify,
 │   │                          normalize, compare, pipeline
 │   └── llm/                   Gemini fallback
-├── api/                       FastAPI service            (X)
-├── web/                       React frontend             (U)
+├── api/                       FastAPI service            (X — not yet created)
+├── web/                       React frontend             (U — not yet created)
 ├── tests/                     46 unit tests
-├── docs/                      evidence: RESULTS, SWEEP, CSVs
+├── docs/                      validation evidence (RESULTS, SWEEP, CSV)
 ├── .cache/llm/                27 cached classifications — COMMITTED
 │
+├── verify_results.py          ONE-COMMAND CHECK — start here
 ├── run_pipeline.py            main entry point
 ├── compare.py                 rules vs rules+LLM, with headroom analysis
 ├── sweep.py                   score across freshly generated datasets
 ├── score.py                   score an existing submission (prints SHA-256)
 ├── verify_setup.py            environment + benchmark integrity check
 ├── check_gemini.py            prove the API key and model work
-├── run_server.py              organisers' scoring server, without Docker
-├── submit_to_server.py        POST a submission to it
 │
 ├── README.md                  ← mandatory deliverable, X owns
 ├── SCORES.md                  dated score log
 ├── TEAM_PLAN.md               roles and stages
 ├── instructions.md            this file
 ├── requirements.txt
-├── Dockerfile                 (X)
+├── Dockerfile                 (X — not yet created)
 │
 ├── sdoc-hackathon-bundle/     supplied data      — gitignored
 └── sdoc-hackathon-docker/     supplied server    — gitignored
@@ -44,6 +43,60 @@ SleeplessMonashians Hackathon/
 The two supplied folders are **not committed**. `sdoc-hackathon-docker`
 contains `ground_truth.json`, the answer key; it should not sit in a public
 repo that judges will read. Extract the organisers' zips locally.
+
+## Verify your checkout (every teammate, first thing)
+
+Three steps. The script checks everything else and tells you what's wrong.
+
+**1.** The two supplied data folders are gitignored, so a fresh clone doesn't
+have them. Extract the organisers' zips into the project root:
+
+```
+SleeplessMonashians Hackathon/
+├── sdoc-hackathon-bundle/     <- from sdoc-hackathon-bundle.zip
+├── sdoc-hackathon-docker/     <- from sdoc-hackathon-docker.zip
+└── ... (the repo)
+```
+
+**2.** Install dependencies:
+
+```powershell
+pip install -r requirements.txt
+```
+
+**3.** Run the verifier:
+
+```powershell
+python verify_results.py
+```
+
+Takes about three minutes. It checks the environment, the supplied data's
+checksum, the pipeline score, the unit tests, the Gemini fallback, and then
+generates several datasets **from random seeds** and scores those too.
+
+**Expect `ALL CHECKS PASSED`.** Every check prints what it got and what it
+expected, and every failure prints the fix, so you shouldn't need to read
+further into this document unless something breaks.
+
+```powershell
+python verify_results.py --quick     # ~20s, skips the unseen-data step
+python verify_results.py --unseen 10 # more random datasets
+python verify_results.py --md docs\VERIFY.md
+```
+
+Three things worth knowing up front:
+
+- **No Gemini API key is needed.** `.cache/llm/` is committed, so the AI
+  fallback runs offline from cached results.
+- **Expected scores adapt to your machine.** 0.9904 with poppler installed,
+  0.9773 without — the verifier knows which you have and won't fail you for
+  it. See the poppler section below; the container installs it.
+- **The script writes nothing you need to clean up.** Generated datasets go
+  to a temp folder and are deleted afterwards; `submission.json` isn't
+  touched. Safe to run before or after `git add`.
+
+The rest of this document is reference: what each command does, how the
+pipeline works, and the traps we've already hit.
 
 ## Setup
 
@@ -134,23 +187,32 @@ writes `.pytest_cache/` (**gitignored**). Expect `46 passed`.
 python compare.py --seeds 7001 7002 7003 --n 500 --md docs\RESULTS.md --csv docs\compare.csv
 ```
 writes `docs/RESULTS.md` (**committed** — evidence) and appends to
-`docs/compare.csv` (**committed**). Generates each dataset into a temp folder
+`docs/compare_poppler.csv` (**committed**). Generates each dataset into a temp folder
 and deletes it afterwards. Uses ~6 batched Gemini requests, or zero if the
 cache already covers them.
 
 ```powershell
 python sweep.py --seeds 7001 7002 7003 --n 500 --md docs\SWEEP.md --csv docs\sweep.csv
 ```
-writes `docs/SWEEP.md` and `docs/sweep.csv` (**committed**). Add `--keep` to
+writes `docs/SWEEP.md` (**committed**). Add `--keep` to
 leave the generated datasets in `heldout/` (**gitignored**) instead of a temp
 folder.
 
 ### Setup checks
 
 ```powershell
+python verify_results.py
+```
+writes nothing (unless `--md` is given). Runs every check below in one go:
+environment, data checksum, pipeline score, unit tests, Gemini cache, and
+freshly generated unseen datasets. Exits non-zero if anything fails. This is
+the command to give a new teammate.
+
+```powershell
 python verify_setup.py
 ```
-writes nothing. Exits non-zero with a specific fix for each problem.
+writes nothing. The environment and data portion only — faster, and what
+`verify_results.py` runs internally as its first two sections.
 
 ```powershell
 python check_gemini.py
@@ -158,13 +220,23 @@ python check_gemini.py
 writes nothing. Lists the models your key can reach, makes one call, and
 validates the JSON parses.
 
-### Scoring server (optional)
+### Organisers' own scorer (cross-check)
 
 ```powershell
-python run_server.py          # terminal 1 — serves http://localhost:8080
-python submit_to_server.py    # terminal 2 — POSTs submission.json
+cd sdoc-hackathon-docker\server
+python score_cli.py ..\..\submission.json
+cd ..\..
 ```
-writes nothing. Must print the same score as `score.py` for the same file.
+writes nothing. Same `scoring.py`, same weights, so it must print the same
+final score as `score.py`. Worth running once to confirm ours isn't lying.
+
+With Docker, the same thing over HTTP:
+
+```powershell
+cd sdoc-hackathon-docker
+docker compose up --build
+```
+then `POST` to `http://localhost:8080/submit` via `sdoc-hackathon-bundle/loader.py`.
 
 ### Expected scores
 
@@ -179,7 +251,7 @@ writes nothing. Must print the same score as `score.py` for the same file.
 |---|---|---|
 | `submission.json` | yes | `run_pipeline.py` |
 | `.cache/llm/*.json` | yes — so the demo needs no API key | `run_pipeline.py --llm` |
-| `docs/RESULTS.md`, `docs/SWEEP.md`, `docs/*.csv` | yes — validation evidence | `compare.py`, `sweep.py` |
+| `docs/RESULTS*.md`, `docs/SWEEP.md`, `docs/compare_poppler.csv` | yes — validation evidence | `compare.py`, `sweep.py` |
 | `docs/reports.json` | no, 1.4 MB | `run_pipeline.py --report` |
 | `heldout/`, `.pytest_cache/`, `__pycache__/` | no | the commands above |
 
@@ -247,7 +319,7 @@ If seed 42 rises while the held-out mean falls, revert.
 | Score ≈ 0.977 vs 0.990 | poppler not on PATH; expected on a bare laptop |
 | Ground-truth checksum fails | `generate.py` ran without `--out` |
 | `ModuleNotFoundError: sdoc` | Run from the project root |
-| `docker: not recognized` | Not installed. Use `run_server.py` |
+| `docker: not recognized` | Not installed. Use `score_cli.py` instead |
 | 429 daily quota | Per model. Switch to `gemini-3.5-flash-lite` |
 | Two machines, two scores | Compare `score.py` hashes first |
 
