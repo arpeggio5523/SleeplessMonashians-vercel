@@ -1509,7 +1509,9 @@
   "status": "NEEDS_REVIEW",
   "review_reason": "missing_value",
   "has_defect": false,
-  "defect_fields": []
+  "defect_fields": [
+   "notify_party"
+  ]
  },
  "email_209": {
   "category": "SI_REQUEST",
@@ -2265,7 +2267,9 @@
   "status": "NEEDS_REVIEW",
   "review_reason": "missing_value",
   "has_defect": false,
-  "defect_fields": []
+  "defect_fields": [
+   "container_count"
+  ]
  },
  "email_314": {
   "category": "INVOICE_QUERY",
@@ -2540,7 +2544,10 @@
   "status": "NEEDS_REVIEW",
   "review_reason": "missing_value",
   "has_defect": false,
-  "defect_fields": []
+  "defect_fields": [
+   "container_count",
+   "notify_party"
+  ]
  },
  "email_352": {
   "category": "SI_REQUEST",
