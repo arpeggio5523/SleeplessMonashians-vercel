@@ -31,16 +31,46 @@ export default function InboxView({ onSelect }) {
       (statusFilter === "ALL" || e.status === statusFilter)
   );
 
+  const summary = {
+    total: emails.length,
+    ok: emails.filter(e => e.status === "OK").length,
+    mismatch: emails.filter(e => e.status === "MISMATCH").length,
+    review: emails.filter(e => e.status === "NEEDS_REVIEW").length,
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6">
-      <div className="flex gap-3 mb-4">
+
+      {/* Summary dashboard */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="bg-white p-4 border border-neutral-200 rounded-lg shadow-sm">
+          <p className="text-xs text-neutral-500 font-semibold uppercase">Total Emails</p>
+          <p className="text-2xl font-bold text-neutral-800">{summary.total}</p>
+        </div>
+        <div className="bg-emerald-50 p-4 border border-emerald-200 rounded-lg shadow-sm">
+          <p className="text-xs text-emerald-700 font-semibold uppercase">Clean (OK)</p>
+          <p className="text-2xl font-bold text-emerald-800">{summary.ok}</p>
+        </div>
+        <div className="bg-amber-50 p-4 border border-amber-200 rounded-lg shadow-sm">
+          <p className="text-xs text-amber-700 font-semibold uppercase">Mismatches</p>
+          <p className="text-2xl font-bold text-amber-800">{summary.mismatch}</p>
+        </div>
+        <div className="bg-rose-50 p-4 border border-rose-200 rounded-lg shadow-sm">
+          <p className="text-xs text-rose-700 font-semibold uppercase">Needs Review</p>
+          <p className="text-2xl font-bold text-rose-800">{summary.review}</p>
+        </div>
+      </div>
+
+      {/* Filter */}
+      <div className="flex gap-3 mb-4" items-center>
         <Select value={categoryFilter} onChange={setCategoryFilter} options={categories} />
         <Select value={statusFilter} onChange={setStatusFilter} options={statuses} />
         <span className="text-sm text-neutral-500 self-center ml-auto">
-          {filtered.length} of {emails.length}
+          Showing {filtered.length} of {emails.length}
         </span>
       </div>
 
+      {/* Email list */}
       <div className="border border-neutral-200 rounded-lg divide-y divide-neutral-100 bg-white overflow-hidden">
         {filtered.map((e) => (
           <button
