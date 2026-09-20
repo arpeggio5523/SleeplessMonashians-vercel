@@ -165,6 +165,27 @@ class EmailResult:
     # ---- derived -------------------------------------------------------
     @property
     def defect_fields(self) -> list[str]:
+        """
+        Confirmed discrepancies only.
+
+        Empty unless the email is a MISMATCH. When a document could not be
+        fully read we escalate the WHOLE email rather than reporting a
+        partial comparison, so reporting 'defect_fields' alongside
+        'has_defect: false' would contradict itself and mislead a reviewer
+        into treating an unverified reading as a confirmed discrepancy.
+
+        The individual verdicts are still in `comparisons`, which is what the
+        review screen renders.
+        """
+        if self.status != "MISMATCH":
+            return []
+        return sorted(c.field for c in self.comparisons if c.status == "mismatch")
+
+    @property
+    def unconfirmed_mismatches(self) -> list[str]:
+        """Fields that differ but sit behind an escalation. For the UI only."""
+        if self.status != "NEEDS_REVIEW":
+            return []
         return sorted(c.field for c in self.comparisons if c.status == "mismatch")
 
     @property
@@ -195,6 +216,7 @@ class EmailResult:
             "review_reason": self.review_reason,
             "has_defect": self.has_defect,
             "defect_fields": self.defect_fields,
+            "unconfirmed_mismatches": self.unconfirmed_mismatches,
             "comparisons": [c.to_dict() for c in self.comparisons],
             "si": self.si.to_dict() if self.si else None,
             "bl": self.bl.to_dict() if self.bl else None,

@@ -145,11 +145,18 @@ for mod, pkg, why in [("pdfplumber", "pdfplumber", "PDF attachments (28 files)")
         bad(f"{pkg} missing — needed for {why}",
             f"pip install {pkg}")
 
-if shutil.which("pdftotext"):
-    ok("pdftotext found (faster PDF path)")
+try:
+    from sdoc.core.ingest import poppler_path
+    _pp = poppler_path()
+except Exception:
+    _pp = shutil.which("pdftotext")
+if _pp:
+    ok(f"poppler found — {_pp}")
 else:
-    warn("pdftotext not found — will use pdfplumber instead",
-         "Optional. Costs ~0.013 final score. Windows users normally skip this.")
+    warn("poppler not found — using pdfplumber instead",
+         "Optional, worth ~0.013. The container installs poppler-utils.\n"
+         "       Unzip poppler anywhere under your home folder and it is found\n"
+         "       automatically, or set SDOC_POPPLER_PATH to its bin directory.")
 
 # ---------------------------------------------------------------- 6. Encoding
 print("\n6. Encoding (the Windows trap)")

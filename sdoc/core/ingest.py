@@ -11,6 +11,7 @@ so the pipeline can escalate instead of crashing.
 from __future__ import annotations
 
 import io
+import os
 import shutil
 import subprocess
 import unicodedata
@@ -21,6 +22,65 @@ from typing import Optional
 # Minimum characters before we believe an extraction succeeded. Image-only
 # PDFs typically return a handful of stray glyphs, not nothing.
 MIN_USEFUL_CHARS = 40
+
+
+# --------------------------------------------------------------------------
+# poppler discovery
+# --------------------------------------------------------------------------
+#
+# pdftotext is a system binary, not a Python package, so pip cannot supply it.
+# The container installs it via apt (poppler-utils) and it is simply on PATH.
+# On a developer laptop it is usually unzipped somewhere and forgotten, and a
+# session-scoped PATH edit is lost the moment the terminal closes - which
+# quietly costs ~0.013 of the score and confuses everyone.
+#
+# So look on PATH first, then in the handful of places it actually gets
+# installed. Set SDOC_POPPLER_PATH to point at the bin directory explicitly.
+
+_POPPLER_CACHED: Optional[str] = None
+_POPPLER_LOOKED = False
+
+
+def _find_pdftotext() -> Optional[str]:
+    """Full path to pdftotext, or None. Result is cached for the process."""
+    global _POPPLER_CACHED, _POPPLER_LOOKED
+    if _POPPLER_LOOKED:
+        return _POPPLER_CACHED
+    _POPPLER_LOOKED = True
+
+    exe = "pdftotext.exe" if os.name == "nt" else "pdftotext"
+
+    found = shutil.which("pdftotext")
+    if found:
+        _POPPLER_CACHED = found
+        return found
+
+    explicit = os.environ.get("SDOC_POPPLER_PATH")
+    candidates = [Path(explicit)] if explicit else []
+    home = Path.home()
+    candidates += [
+        home / "poppler",
+        Path("C:/poppler"),
+        Path("C:/Program Files/poppler"),
+        Path("/usr/bin"), Path("/usr/local/bin"), Path("/opt/homebrew/bin"),
+    ]
+
+    for root in candidates:
+        try:
+            if not root.exists():
+                continue
+            direct = root / exe
+            if direct.is_file():
+                _POPPLER_CACHED = str(direct)
+                return _POPPLER_CACHED
+            # unzipped releases nest it under poppler-xx.xx.x/Library/bin
+            for hit in root.rglob(exe):
+                _POPPLER_CACHED = str(hit)
+                return _POPPLER_CACHED
+        except (OSError, PermissionError):
+            continue
+
+    return None
 
 
 @dataclass
@@ -70,9 +130,10 @@ def _read_pdf(raw: bytes, path: str) -> IngestResult:
     warnings: list[str] = []
 
     # poppler is fastest and preserves column layout best, when present
-    if shutil.which("pdftotext"):
+    pdftotext = _find_pdftotext()
+    if pdftotext:
         try:
-            p = subprocess.run(["pdftotext", "-layout", "-", "-"],
+            p = subprocess.run([pdftotext, "-layout", "-", "-"],
                                input=raw, capture_output=True, timeout=30)
             text = p.stdout.decode("utf-8", "replace")
             if len(text.strip()) > MIN_USEFUL_CHARS:
@@ -141,6 +202,11 @@ def _read_xlsx(raw: bytes, path: str) -> IngestResult:
 # --------------------------------------------------------------------------
 
 READERS = {".pdf": _read_pdf, ".docx": _read_docx, ".xlsx": _read_xlsx}
+
+
+def poppler_path() -> Optional[str]:
+    """Where pdftotext was found, for diagnostics. None means pdfplumber."""
+    return _find_pdftotext()
 
 
 def ingest(path: str, raw: Optional[bytes]) -> IngestResult:

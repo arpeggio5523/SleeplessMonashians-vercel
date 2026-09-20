@@ -1,0 +1,26 @@
+.git
+.gitignore
+
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+.pytest_cache
+.venv
+venv
+
+.env
+*.db
+
+sdoc-hackathon-docker
+
+submission.json
+reports.json
+
+web/node_modules
+web/dist
+# keep .cache/llm — it is copied explicitly above
+docs
+tests
+*.md

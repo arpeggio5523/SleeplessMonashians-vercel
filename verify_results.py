@@ -9,14 +9,6 @@ data nobody has ever run.
     python verify_results.py --llm           # include the Gemini comparison
     python verify_results.py --md docs\\VERIFY.md
 
-    * Five random datasets, ~5 min.
-    python verify_results.py --unseen 5 --md docs\VERIFY.md
-    * Ten datasets, 800 emails each — ~8,000 emails. ~15 min, still no key. The most thorough version.
-    python verify_results.py --unseen 10 --n 800 --md docs\VERIFY.md
-    * Five random datasets, also scoring them with the Gemini fallback. ~6 min.
-      Needs GEMINI_API_KEY and ~10 requests, so set gemini-3.5-flash-lite first.
-    python verify_results.py --llm --unseen 5 --md docs\VERIFY.md
-
 Every check prints PASS or FAIL with the number it got and the number it
 expected. Exits non-zero if anything failed, so it works in CI too.
 
@@ -133,7 +125,12 @@ GT = DOCKER / "data_v2" / "ground_truth.json"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(DOCKER / "server"))
 
-HAS_POPPLER = shutil.which("pdftotext") is not None
+try:
+    from sdoc.core.ingest import poppler_path as _pp
+    POPPLER_AT = _pp()
+except Exception:
+    POPPLER_AT = shutil.which("pdftotext")
+HAS_POPPLER = POPPLER_AT is not None
 
 # Expected scores differ by extractor. poppler reconstructs PDF columns
 # properly; pdfplumber is the pure-Python fallback and loses ~0.013.
@@ -169,10 +166,12 @@ def step_environment() -> bool:
     if not ok:
         note("fix: pip install -r requirements.txt")
 
-    check("poppler on PATH", True,
-          "yes" if HAS_POPPLER else "no (using pdfplumber)", "optional")
+    check("poppler available", True,
+          (POPPLER_AT or "no (using pdfplumber)")[-42:], "optional")
     if not HAS_POPPLER:
-        note("without poppler the score is ~0.013 lower; the container installs it")
+        note("without poppler the score is ~0.013 lower; the container installs it.")
+        note("unzip poppler under your home folder and it is found automatically,")
+        note("or set SDOC_POPPLER_PATH to its bin directory.")
     return ok
 
 

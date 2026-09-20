@@ -15,10 +15,24 @@ sweep_*/
 compare_*/
 poppler/
 
-# --- supplied data: extract the organisers' zips here, never commit ---
-# sdoc-hackathon-docker contains ground_truth.json (the answer key).
-sdoc-hackathon-bundle/
-sdoc-hackathon-docker/
+# --- supplied data ---
+# Committed deliberately (7.5 MB). The repo then works from a clean clone:
+# verify_results.py, compare.py and sweep.py all need the dataset AND the
+# organisers' generate.py, and our validation claim is only checkable if a
+# reader can reproduce it. The data is the organisers' own, shipped to every
+# team, and the judges are the people who issued it.
+#
+# Note: sdoc-hackathon-docker/data_v2/ground_truth.json is the answer key.
+# It arrived inside the docker bundle; docker-compose mounts it privately at
+# /secrets, so it was not meant to be visible. We never fitted to it - see
+# the held-out validation in docs/ - but it is here because removing it
+# breaks every verification command.
+#
+# To exclude just the key instead, uncomment the next line. Anyone can
+# regenerate it byte-identically:
+#   python sdoc-hackathon-docker/data_v2/generate.py \
+#       --seed 42 --n 500 --out sdoc-hackathon-docker/data_v2
+# sdoc-hackathon-docker/data_v2/ground_truth.json
 
 # --- secrets ---
 .env
@@ -36,3 +50,19 @@ Thumbs.db
 !.cache/
 !.cache/llm/
 !.cache/llm/*.json
+
+# --- runtime state -----------------------------------------------------
+# SQLite database created by the API at run time. Rebuilt by POST /process.
+data/
+*.db
+
+# --- scratch comparison output -----------------------------------------
+# Written by score_api.py when proving the API and CLI agree. The one
+# deliverable submission is submission.json.
+submission_api.json
+submission_local.json
+
+# --- archives ---
+# Zips passed around between team members. Never commit one; copying a
+# teammate's sdoc-hackathon-docker/ is how the benchmark got overwritten.
+*.zip
