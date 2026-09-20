@@ -1,4 +1,4 @@
-const API_BASE_URL = (
+export const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL ||
   "https://sdoc-api-856612571283.asia-southeast1.run.app"
 ).replace(/\/+$/, "");
@@ -50,5 +50,11 @@ export async function submitReview(emailId, decision) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export async function retryEmailProcess(emailId) {
+  return request(`/process/${encodeURIComponent(emailId)}`, {
+    method: "POST",
   });
 }
