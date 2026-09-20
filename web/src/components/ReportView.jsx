@@ -78,7 +78,8 @@ export default function ReportView({ emailId, onBack }) {
   if (!data) return <div className="p-8 text-rose-500">Data not found.</div>;
 
   const isReviewNeeded = data.status === "NEEDS_REVIEW";
-  const hasFieldsToCorrect = data.review_reason === "unreadable" || data.review_reason === "missing_value";
+  const hasComparisons = data.comparisons && data.comparisons.length > 0;
+  const hasFieldsToCorrect = hasComparisons && (data.review_reason === "unreadable" || data.review_reason === "missing_value");
 
   return (
     <div className="w-full flex flex-col">
@@ -95,11 +96,11 @@ export default function ReportView({ emailId, onBack }) {
         </div>
       </div>
 
-      {/* Full-width 50/50 Split Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full">
+      {/* Dynamic Grid Layout: Adjust columns depending on whether comparison fields exist */}
+      <div className={`grid grid-cols-1 ${hasComparisons ? 'lg:grid-cols-12' : 'lg:grid-cols-1'} gap-8 items-start w-full`}>
         
-        {/* LEFT COLUMN: Raw Document Context Viewer (6 cols) */}
-        <div className="lg:col-span-6 flex flex-col border border-neutral-200 rounded-xl bg-white overflow-hidden shadow-xs h-[820px]">
+        {/* LEFT COLUMN: Raw Document Context Viewer */}
+        <div className={`flex flex-col border border-neutral-200 rounded-xl bg-white overflow-hidden shadow-xs ${hasComparisons ? 'lg:col-span-6 h-[820px]' : 'w-full max-h-[500px]'}`}>
           <div className="flex border-b border-neutral-200 bg-neutral-50">
             {["SI", "BL"].map((tab) => (
               <button
@@ -118,7 +119,7 @@ export default function ReportView({ emailId, onBack }) {
               Document Path: {data[activeTab.toLowerCase()]?.path || "N/A"}
             </p>
             
-            {data.comparisons?.length > 0 ? (
+            {hasComparisons ? (
               data.comparisons.map((comp) => (
                  <div key={comp.field} className="p-3 bg-white border border-neutral-200 rounded-lg shadow-2xs">
                    <span className="text-xs font-bold text-blue-600 font-sans uppercase">[{comp.field}]</span>
@@ -149,8 +150,8 @@ export default function ReportView({ emailId, onBack }) {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Unified Verification & Action Workspace (6 cols) */}
-        <div className="lg:col-span-6 flex flex-col gap-6 w-full">
+        {/* RIGHT COLUMN: Unified Verification & Action Workspace */}
+        <div className={`${hasComparisons ? 'lg:col-span-6 flex flex-col gap-6 w-full' : 'w-full'}`}>
           
           {/* Status Alert Banner */}
           {isReviewNeeded && (
@@ -185,24 +186,22 @@ export default function ReportView({ emailId, onBack }) {
             </div>
           )}
 
-          {/* Unified Comparison & Inline Correction Workspace */}
-          <div className="border border-neutral-200 rounded-xl bg-white p-6 shadow-xs flex flex-col h-[740px] w-full">
-            <div className="flex justify-between items-center mb-4 border-b border-neutral-100 pb-3">
-              <div>
-                <h2 className="text-base font-extrabold text-neutral-900">Document Comparison & Audit Workspace</h2>
-                <p className="text-xs text-neutral-500">Compare reference SI values with target BL data. Editable fields allow direct overrides.</p>
+          {/* Unified Comparison & Inline Correction Workspace (Only rendered if comparison fields exist) */}
+          {hasComparisons && (
+            <div className="border border-neutral-200 rounded-xl bg-white p-6 shadow-xs flex flex-col h-[740px] w-full">
+              <div className="flex justify-between items-center mb-4 border-b border-neutral-100 pb-3">
+                <div>
+                  <h2 className="text-base font-extrabold text-neutral-900">Document Comparison & Audit Workspace</h2>
+                  <p className="text-xs text-neutral-500">Compare reference SI values with target BL data. Editable fields allow direct overrides.</p>
+                </div>
+                <span className="text-xs font-bold text-neutral-500 bg-neutral-100 px-2.5 py-1 rounded-md">
+                  {data.comparisons?.length || 0} Fields Checked
+                </span>
               </div>
-              <span className="text-xs font-bold text-neutral-500 bg-neutral-100 px-2.5 py-1 rounded-md">
-                {data.comparisons?.length || 0} Fields Checked
-              </span>
-            </div>
 
-            {/* Scrollable Field List */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-              {data.comparisons?.length === 0 ? (
-                 <p className="text-sm text-neutral-500">No field data available to compare.</p>
-              ) : (
-                data.comparisons?.map((field) => {
+              {/* Scrollable Field List */}
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                {data.comparisons?.map((field) => {
                   const isMismatched = field.status !== 'match';
                   return (
                     <div 
@@ -230,7 +229,7 @@ export default function ReportView({ emailId, onBack }) {
                         {/* BL Target / Editable Input */}
                         <div>
                           <span className="text-neutral-400 text-[10px] font-bold uppercase tracking-wider block mb-1">BL (Target Value)</span>
-                          {hasFieldsToCorrect && corrections[field.field] !== undefined ? (
+                          {corrections[field.field] !== undefined ? (
                             <input 
                               type="text" 
                               className="w-full border border-neutral-300 rounded-lg px-3 py-1.5 text-sm bg-white font-bold text-neutral-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all shadow-2xs"
@@ -246,12 +245,10 @@ export default function ReportView({ emailId, onBack }) {
                       </div>
                     </div>
                   );
-                })
-              )}
-            </div>
+                })}
+              </div>
 
-            {/* Sticky Action Footer for Corrections */}
-            {hasFieldsToCorrect && (
+              {/* Sticky Action Footer for Corrections */}
               <div className="mt-4 pt-4 border-t border-neutral-200 bg-white">
                 <button 
                   onClick={handleBatchCorrection}
@@ -261,8 +258,8 @@ export default function ReportView({ emailId, onBack }) {
                   {isSubmitting ? "Submitting All Changes..." : "Confirm & Save All Corrections"}
                 </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
         </div>
 
