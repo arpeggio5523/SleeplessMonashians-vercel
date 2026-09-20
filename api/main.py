@@ -25,6 +25,7 @@ from pydantic import BaseModel
 from sdoc.core.classify import classify as rule_classify
 from sdoc.core.contract import CONFIDENCE_THRESHOLD
 from sdoc.core.pipeline import FolderSource, process_email, run
+from sdoc.core.ingest import poppler_path
 
 from api.storage import (  # noqa: I001
     get_all_results,
@@ -119,7 +120,7 @@ app = FastAPI(
         "API for email classification, SI/BL comparison "
         "and human review."
     ),
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan,
 )
 
@@ -153,12 +154,22 @@ class ReviewRequest(BaseModel):
 
 @app.get("/health")
 def health():
+    cache_dir = Path(os.getenv("SDOC_LLM_CACHE", ".cache/llm"))
+
     return {
         "status": "ok",
         "service": "shipping-document-verification",
-        "version": "1.0.0",
+        "version": "1.1.0",
+        "revision": os.getenv("K_REVISION", "local"),
+        "capabilities": {
+            "llm_enabled": _get_llm() is not None,
+            "llm_cache_present": (
+                cache_dir.is_dir()
+                and any(cache_dir.glob("*.json"))
+            ),
+            "poppler_enabled": poppler_path() is not None,
+        },
     }
-
 
 # ---------------------------------------------------------------------------
 # Process entire inbox
