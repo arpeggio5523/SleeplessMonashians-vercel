@@ -6,31 +6,58 @@ export default function ReportView({ emailId, onBack }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("SI");
 
-  const [fieldToCorrect, setFieldToCorrect] = useState("container_count");
-  const [correctedValue, setCorrectedValue] = useState("");
+  const [corrections, setCorrections] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     getEmail(emailId)
-      .then(setData)
+      .then((res) => {
+        setData(res);
+        // Pre-fill the form with existing BL/Target values or empty strings
+        if (res.comparisons) {
+          const initialValues = {};
+          res.comparisons.forEach((comp) => {
+            initialValues[comp.field] = comp.bl?.raw || comp.bl?.value || "";
+          });
+          setCorrections(initialValues);
+        }
+      })
       .catch(() => alert("Failed to fetch email details"))
       .finally(() => setLoading(false));
   }, [emailId]);
 
-  async function handleReviewAction(actionType) {
+  // Handle batch review submission (loops client-side to submit each edited field)
+  async function handleBatchCorrection() {
     setIsSubmitting(true);
     try {
-      const payload = actionType === "correct" 
-        ? { action: "correct", field: fieldToCorrect, value: correctedValue }
-        : { action: "confirm" };
-        
-      await submitReview(emailId, payload);
+      // Loop through each field modified by the user
+      for (const [field, value] of Object.entries(corrections)) {
+        await submitReview(emailId, {
+          action: "correct",
+          field: field,
+          value: value,
+        });
+      }
       
+      alert("Successfully submitted all corrections!");
       const updatedData = await getEmail(emailId);
       setData(updatedData);
     } catch (error) {
-      alert("Failed to submit review: " + error.message);
+      alert("Failed to submit corrections: " + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleConfirmIssue() {
+    setIsSubmitting(true);
+    try {
+      await submitReview(emailId, { action: "confirm" });
+      const updatedData = await getEmail(emailId);
+      setData(updatedData);
+    } catch (error) {
+      alert("Failed to confirm issue: " + error.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -132,52 +159,39 @@ export default function ReportView({ emailId, onBack }) {
               <p className="text-sm text-rose-700 mb-4 font-medium">
                 Reason: <span className="font-bold underline">{data.review_reason ? data.review_reason.replaceAll("_", " ") : "Unknown"}</span>. 
                 {hasFieldsToCorrect 
-                  ? " Please review the document context on the left and input the missing value below." 
+                  ? " Review all fields below, make any necessary adjustments, and submit with a single confirmation." 
                   : " Please review the attached files. You can confirm this failure or retry the pipeline if the file was replaced."}
               </p>
               
               {hasFieldsToCorrect ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                  <div>
-                    <label className="text-xs font-bold text-rose-800 mb-1.5 block uppercase tracking-wide">Target Field</label>
-                    <select 
-                      className="w-full border border-rose-300 rounded p-2 text-sm bg-white font-medium text-neutral-800"
-                      value={fieldToCorrect}
-                      onChange={(e) => setFieldToCorrect(e.target.value)}
-                    >
-                      <option value="shipper">Shipper</option>
-                      <option value="consignee">Consignee</option>
-                      <option value="notify_party">Notify Party</option>
-                      <option value="port_of_loading">Port of Loading</option>
-                      <option value="port_of_discharge">Port of Discharge</option>
-                      <option value="container_count">Container Count</option>
-                      <option value="gross_weight_kg">Gross Weight</option>
-                    </select>
+                <div className="space-y-3">
+                  <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                    {Object.keys(corrections).map((fieldName) => (
+                      <div key={fieldName} className="bg-white p-2.5 rounded border border-rose-200">
+                        <label className="text-[11px] font-bold text-neutral-600 block uppercase tracking-wide mb-1">
+                          {fieldName.replaceAll("_", " ")}
+                        </label>
+                        <input 
+                          type="text" 
+                          className="w-full border border-neutral-300 rounded p-1.5 text-sm bg-white font-medium text-neutral-800 focus:border-rose-500 outline-none"
+                          value={corrections[fieldName]}
+                          onChange={(e) => setCorrections({ ...corrections, [fieldName]: e.target.value })}
+                        />
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <label className="text-xs font-bold text-rose-800 mb-1.5 block uppercase tracking-wide">Corrected Value</label>
-                    <input 
-                      type="text" 
-                      className="w-full border border-rose-300 rounded p-2 text-sm bg-white font-medium text-neutral-800"
-                      placeholder="Enter correct value..."
-                      value={correctedValue}
-                      onChange={(e) => setCorrectedValue(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <button 
-                      onClick={() => handleReviewAction("correct")}
-                      disabled={isSubmitting || !correctedValue}
-                      className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold px-4 py-2 rounded text-sm disabled:opacity-50 transition-colors h-[38px]"
-                    >
-                      {isSubmitting ? "Updating..." : "Confirm & Update"}
-                    </button>
-                  </div>
+                  <button 
+                    onClick={handleBatchCorrection}
+                    disabled={isSubmitting}
+                    className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold px-4 py-2.5 rounded text-sm disabled:opacity-50 transition-colors shadow-sm"
+                  >
+                    {isSubmitting ? "Submitting All..." : "Confirm All Corrections"}
+                  </button>
                 </div>
               ) : (
                 <div className="flex gap-3">
                   <button 
-                    onClick={() => handleReviewAction("confirm")}
+                    onClick={handleConfirmIssue}
                     disabled={isSubmitting}
                     className="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-4 py-2 rounded text-sm disabled:opacity-50 transition-colors"
                   >
