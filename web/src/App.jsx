@@ -17,7 +17,8 @@ export default function App() {
     <div className="min-h-screen bg-neutral-50 pb-12">
       <Nav view={view} setView={(tab) => { setView(tab); setSelectedEmail(null); }} />
       
-      <main className="max-w-5xl mx-auto px-6">
+      {/* Changed max-w-5xl to max-w-7xl so it spans the entire screen cleanly */}
+      <main className="max-w-7xl mx-auto px-8 w-full">
         {view === "inbox" && <InboxView onSelect={openReport} />}
         {view === "report" && (
           <ReportView emailId={selectedEmail} onBack={() => setView("inbox")} />
