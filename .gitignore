@@ -66,3 +66,11 @@ submission_local.json
 # Zips passed around between team members. Never commit one; copying a
 # teammate's sdoc-hackathon-docker/ is how the benchmark got overwritten.
 *.zip
+
+# Frontend dependencies and generated build
+web/node_modules/
+web/dist/
+
+# Local frontend configuration
+web/.env.local
+web/.env.*.local
