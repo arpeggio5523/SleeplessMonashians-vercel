@@ -56,7 +56,7 @@ export default function ReportView({ emailId, onBack }) {
   const hasFieldsToCorrect = data.review_reason === "unreadable" || data.review_reason === "missing_value";
 
   return (
-    <div className="max-w-7xl mx-auto p-6 flex flex-col h-screen">
+    <div className="max-w-5xl mx-auto p-6 flex flex-col">
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <button onClick={onBack} className="text-blue-600 text-sm font-medium hover:underline">
@@ -71,7 +71,7 @@ export default function ReportView({ emailId, onBack }) {
       </div>
 
       <div className="flex gap-6 flex-1 min-h-0">
-        {/* left panel: Raw Context Viewer */}
+        {/* Left panel: Raw Context Viewer */}
         <div className="w-1/2 flex flex-col border border-neutral-200 rounded-lg bg-white overflow-hidden shadow-sm">
           <div className="flex border-b border-neutral-200 bg-neutral-50">
             {["SI", "BL"].map((tab) => (
@@ -123,7 +123,7 @@ export default function ReportView({ emailId, onBack }) {
           </div>
         </div>
 
-        {/* right panel: Discrepancy Report & Human Loop */}
+        {/* Right panel: Discrepancy Report & Human Loop */}
         <div className="w-1/2 flex flex-col gap-4">
           
           {isReviewNeeded && (
@@ -137,11 +137,11 @@ export default function ReportView({ emailId, onBack }) {
               </p>
               
               {hasFieldsToCorrect ? (
-                <div className="flex gap-3 items-end">
-                  <div className="flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                  <div>
                     <label className="text-xs font-bold text-rose-800 mb-1.5 block uppercase tracking-wide">Target Field</label>
                     <select 
-                      className="w-full border border-rose-300 rounded p-2 text-sm bg-white"
+                      className="w-full border border-rose-300 rounded p-2 text-sm bg-white font-medium text-neutral-800"
                       value={fieldToCorrect}
                       onChange={(e) => setFieldToCorrect(e.target.value)}
                     >
@@ -154,23 +154,25 @@ export default function ReportView({ emailId, onBack }) {
                       <option value="gross_weight_kg">Gross Weight</option>
                     </select>
                   </div>
-                  <div className="flex-1">
+                  <div>
                     <label className="text-xs font-bold text-rose-800 mb-1.5 block uppercase tracking-wide">Corrected Value</label>
                     <input 
                       type="text" 
-                      className="w-full border border-rose-300 rounded p-2 text-sm bg-white"
+                      className="w-full border border-rose-300 rounded p-2 text-sm bg-white font-medium text-neutral-800"
                       placeholder="Enter correct value..."
                       value={correctedValue}
                       onChange={(e) => setCorrectedValue(e.target.value)}
                     />
                   </div>
-                  <button 
-                    onClick={() => handleReviewAction("correct")}
-                    disabled={isSubmitting || !correctedValue}
-                    className="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-4 py-2 rounded text-sm disabled:opacity-50 transition-colors"
-                  >
-                    {isSubmitting ? "Updating..." : "Confirm & Update"}
-                  </button>
+                  <div>
+                    <button 
+                      onClick={() => handleReviewAction("correct")}
+                      disabled={isSubmitting || !correctedValue}
+                      className="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold px-4 py-2 rounded text-sm disabled:opacity-50 transition-colors h-[38px]"
+                    >
+                      {isSubmitting ? "Updating..." : "Confirm & Update"}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="flex gap-3">
@@ -184,7 +186,7 @@ export default function ReportView({ emailId, onBack }) {
                   <button 
                     onClick={handleRetry}
                     disabled={isSubmitting}
-                    className="bg-white border border-rose-300 hover:bg-rose-50 text-rose-700 font-semibold px-4 py-2 rounded text-sm disabled:opacity-50 transition-colors"
+                    className="bg-white border border-rose-300 hover:bg-rose-50 text-rose-700 font-semibold px-4 py-2 rounded text-sm transition-colors disabled:opacity-50"
                   >
                     {isSubmitting ? "Retrying..." : "Retry Pipeline"}
                   </button>
