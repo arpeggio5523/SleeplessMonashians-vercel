@@ -190,6 +190,77 @@ export default function InboxView({ onSelect }) {
   const formatScore = (value, digits = 4) =>
     typeof value === "number" ? value.toFixed(digits) : "—";
 
+  const validationExportRecord = (run) => {
+    const ev = run?.evaluation || {};
+
+    return {
+      dataset: run?.dataset ?? null,
+      seed: run?.seed ?? null,
+      base_emails: run?.requested_n ?? null,
+      processed_emails: run?.processed ?? null,
+      ok: run?.ok ?? null,
+      mismatches: run?.mismatches ?? null,
+      needs_review: run?.needs_review ?? null,
+      rules_score: run?.rules_score ?? null,
+      gemini_score: ev.final_score ?? null,
+      macro_f1: ev.macro_f1 ?? null,
+      defect_f1: ev.defect_f1 ?? null,
+      end_to_end: ev.end_to_end ?? null,
+      defect_precision: ev.defect_precision ?? null,
+      defect_recall: ev.defect_recall ?? null,
+      end_to_end_success: ev.end_to_end_success ?? null,
+      end_to_end_total: ev.end_to_end_total ?? null,
+      ai_fallback_enabled: run?.llm_enabled ?? null,
+      created_at: run?.created_at ?? null,
+    };
+  };
+
+  const downloadTextFile = (filename, content, type) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportValidation = (run, format) => {
+    const record = validationExportRecord(run);
+    const seedLabel = run?.seed ?? "unknown";
+
+    if (format === "json") {
+      downloadTextFile(
+        `validation-seed-${seedLabel}.json`,
+        JSON.stringify(record, null, 2),
+        "application/json;charset=utf-8"
+      );
+      return;
+    }
+
+    const headers = Object.keys(record);
+    const escapeCsv = (value) => {
+      if (value === null || value === undefined) return "";
+      const text = String(value);
+      return /[",\n]/.test(text)
+        ? `"${text.replace(/"/g, '""')}"`
+        : text;
+    };
+
+    const csv = [
+      headers.join(","),
+      headers.map((key) => escapeCsv(record[key])).join(","),
+    ].join("\n");
+
+    downloadTextFile(
+      `validation-seed-${seedLabel}.csv`,
+      csv,
+      "text/csv;charset=utf-8"
+    );
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-8 pb-12">
       {/* ========================================================
@@ -473,6 +544,10 @@ export default function InboxView({ onSelect }) {
                 </th>
 
                 <th className="px-4 py-3 font-semibold">
+                  {t("Base Emails")}
+                </th>
+
+                <th className="px-4 py-3 font-semibold">
                   {t("Rules")}
                 </th>
 
@@ -486,6 +561,10 @@ export default function InboxView({ onSelect }) {
 
                 <th className="px-4 py-3 font-semibold">
                   {t("Defect P/R")}
+                </th>
+
+                <th className="px-4 py-3 font-semibold">
+                  {t("Export")}
                 </th>
               </tr>
             </thead>
@@ -517,8 +596,12 @@ export default function InboxView({ onSelect }) {
                         ` (Seed ${run.seed})`}
                     </td>
 
-                    <td className="px-4 py-3 text-neutral-400">
-                      —
+                    <td className="px-4 py-3 text-neutral-700">
+                      {run.requested_n ?? "—"}
+                    </td>
+
+                    <td className="px-4 py-3 font-semibold text-neutral-700">
+                      {formatScore(run.rules_score)}
                     </td>
 
                     <td
@@ -552,6 +635,25 @@ export default function InboxView({ onSelect }) {
                       {" / "}
                       {formatScore(ev.defect_recall, 3)}
                     </td>
+
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => exportValidation(run, "json")}
+                          className="text-[11px] font-bold px-2.5 py-1.5 rounded-md border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                        >
+                          JSON
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => exportValidation(run, "csv")}
+                          className="text-[11px] font-bold px-2.5 py-1.5 rounded-md border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 transition-colors"
+                        >
+                          CSV
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -560,6 +662,10 @@ export default function InboxView({ onSelect }) {
               <tr className="hover:bg-neutral-50/50">
                 <td className="px-4 py-3 font-medium text-neutral-900">
                   {t("Supplied (Seed 42)")}
+                </td>
+
+                <td className="px-4 py-3">
+                  500
                 </td>
 
                 <td className="px-4 py-3">
@@ -577,6 +683,10 @@ export default function InboxView({ onSelect }) {
                 <td className="px-4 py-3">
                   1.000 / 1.000
                 </td>
+
+                <td className="px-4 py-3 text-neutral-400">
+                  —
+                </td>
               </tr>
 
               {/* HISTORICAL FIVE-SEED BENCHMARK */}
@@ -586,7 +696,11 @@ export default function InboxView({ onSelect }) {
                 </td>
 
                 <td className="px-4 py-3">
-                  —
+                  500 each
+                </td>
+
+                <td className="px-4 py-3">
+                  0.9918
                 </td>
 
                 <td className="px-4 py-3 font-bold text-blue-600">
@@ -599,6 +713,10 @@ export default function InboxView({ onSelect }) {
 
                 <td className="px-4 py-3">
                   1.000 / 1.000
+                </td>
+
+                <td className="px-4 py-3 text-neutral-400">
+                  —
                 </td>
               </tr>
             </tbody>

@@ -90,11 +90,22 @@ def init_db() -> None:
                 mismatches INTEGER NOT NULL,
                 needs_review INTEGER NOT NULL,
                 llm_enabled INTEGER NOT NULL,
+                rules_score REAL,
                 evaluation_json TEXT NOT NULL,
                 created_at TEXT NOT NULL
             )
             """
         )
+
+        # Migration for databases created before rules_score was recorded.
+        validation_columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(validation_runs)").fetchall()
+        }
+        if "rules_score" not in validation_columns:
+            conn.execute(
+                "ALTER TABLE validation_runs ADD COLUMN rules_score REAL"
+            )
 
         conn.commit()
 
@@ -440,9 +451,9 @@ def save_validation_run(run: dict[str, Any]) -> int:
             """
             INSERT INTO validation_runs (
                 dataset, seed, requested_n, processed, ok, mismatches,
-                needs_review, llm_enabled, evaluation_json, created_at
+                needs_review, llm_enabled, rules_score, evaluation_json, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 run.get("dataset") or "unknown",
@@ -453,6 +464,7 @@ def save_validation_run(run: dict[str, Any]) -> int:
                 int(run.get("mismatches") or 0),
                 int(run.get("needs_review") or 0),
                 1 if run.get("llm_enabled") else 0,
+                run.get("rules_score"),
                 json.dumps(evaluation),
                 now,
             ),
@@ -468,7 +480,7 @@ def get_validation_runs(limit: int = 5) -> list[dict[str, Any]]:
         rows = conn.execute(
             """
             SELECT id, dataset, seed, requested_n, processed, ok, mismatches,
-                   needs_review, llm_enabled, evaluation_json, created_at
+                   needs_review, llm_enabled, rules_score, evaluation_json, created_at
             FROM validation_runs
             ORDER BY id DESC
             LIMIT ?
@@ -487,6 +499,7 @@ def get_validation_runs(limit: int = 5) -> list[dict[str, Any]]:
             "mismatches": row["mismatches"],
             "needs_review": row["needs_review"],
             "llm_enabled": bool(row["llm_enabled"]),
+            "rules_score": row["rules_score"],
             "evaluation": json.loads(row["evaluation_json"]),
             "created_at": row["created_at"],
         }

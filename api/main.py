@@ -336,6 +336,16 @@ def process_inbox(request: ProcessRequest = ProcessRequest()):
         # ---------------------------------------------------------
         llm = _get_llm()
 
+        # For generated validation datasets, also run the exact same data
+        # with rules only. This gives a fair apples-to-apples Rules score.
+        # The Gemini-enabled result remains the one persisted to the inbox.
+        rules_results = None
+        if request.seed is not None:
+            rules_results = run(
+                source,
+                llm_classify=None,
+            )
+
         if llm is not None:
             _warm_llm_cache(source)
 
@@ -348,6 +358,7 @@ def process_inbox(request: ProcessRequest = ProcessRequest()):
         # Score current generated run
         # ---------------------------------------------------------
         evaluation = None
+        rules_score = None
 
         if request.seed is not None and temp_dir is not None:
             ground_truth_path = temp_dir / "ground_truth.json"
@@ -374,6 +385,17 @@ def process_inbox(request: ProcessRequest = ProcessRequest()):
                     "end_to_end_success": scores["end_to_end"]["success"],
                     "end_to_end_total": scores["end_to_end"]["total"],
                 }
+
+                if rules_results is not None:
+                    rules_submission = {
+                        email_id: result.to_submission()
+                        for email_id, result in rules_results.items()
+                    }
+                    rules_scores = score_all(
+                        ground_truth,
+                        rules_submission,
+                    )
+                    rules_score = rules_scores["final_score"]
 
         # ---------------------------------------------------------
         # Persist results + the source records/documents BEFORE the
@@ -404,6 +426,7 @@ def process_inbox(request: ProcessRequest = ProcessRequest()):
             "needs_review": review_count,
             "mismatches": mismatch_count,
             "llm_enabled": llm is not None,
+            "rules_score": rules_score,
             "evaluation": evaluation,
         }
 
