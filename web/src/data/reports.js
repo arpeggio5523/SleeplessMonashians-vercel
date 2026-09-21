@@ -24,10 +24,11 @@ async function request(path, options = {}) {
   return data;
 }
 
-export async function getAmendment(emailId) {
-  // Draft of the email asking the counterparty to correct the draft BL.
-  // Only meaningful on a MISMATCH; the API answers 409 otherwise.
-  return request(`/emails/${emailId}/amendment`);
+export async function getAmendment(emailId, refresh = false) {
+  const url = refresh ? `/emails/${emailId}/amendment?refresh=true` : `/emails/${emailId}/amendment`;
+  const res = await fetch(`${API_BASE_URL}${url}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
 
 export async function getAllEmails() {
