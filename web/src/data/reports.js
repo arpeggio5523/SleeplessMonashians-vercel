@@ -25,10 +25,11 @@ async function request(path, options = {}) {
 }
 
 export async function getAmendment(emailId, refresh = false) {
-  const url = refresh ? `/emails/${emailId}/amendment?refresh=true` : `/emails/${emailId}/amendment`;
-  const res = await fetch(`${API_BASE_URL}${url}`);
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  const query = refresh ? "?refresh=true" : "";
+
+  return request(
+    `/emails/${encodeURIComponent(emailId)}/amendment${query}`
+  );
 }
 
 export async function getAllEmails() {
@@ -67,5 +68,22 @@ export async function submitReview(emailId, decision) {
 export async function retryEmailProcess(emailId) {
   return request(`/process/${encodeURIComponent(emailId)}`, {
     method: "POST",
+  });
+}
+
+export async function processInbox(seed = null, n = 500) {
+  const body = {};
+
+  if (seed !== null && seed !== "") {
+    body.seed = Number(seed);
+    body.n = Number(n);
+  }
+
+  return request("/process", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
   });
 }

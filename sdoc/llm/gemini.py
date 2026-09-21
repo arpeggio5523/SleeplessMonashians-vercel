@@ -155,9 +155,16 @@ def _get_client():
     return _client
 
 
-def _config(max_tokens: int = MAX_OUTPUT_TOKENS):
+def _config(
+    max_tokens: int = MAX_OUTPUT_TOKENS,
+    temperature: float = 0.0,
+):
     """
-    Deterministic, JSON-only, minimal internal reasoning.
+    JSON-only configuration with controllable temperature.
+
+    Classification keeps the default temperature of 0.0 for deterministic
+    behaviour. Other callers, such as amendment regeneration, may explicitly
+    request a higher temperature for wording variation.
 
     Two Gemini quirks matter here:
 
@@ -175,7 +182,7 @@ def _config(max_tokens: int = MAX_OUTPUT_TOKENS):
         else:
             thinking = types.ThinkingConfig(thinking_level="minimal")
         return types.GenerateContentConfig(
-            temperature=0.0,
+            temperature=temperature,
             max_output_tokens=max_tokens,
             response_mime_type="application/json",
             thinking_config=thinking,
@@ -185,12 +192,12 @@ def _config(max_tokens: int = MAX_OUTPUT_TOKENS):
         try:
             from google.genai import types
             return types.GenerateContentConfig(
-                temperature=0.0,
+                temperature=temperature,
                 max_output_tokens=max_tokens,
                 response_mime_type="application/json",
             )
         except Exception:
-            return {"temperature": 0.0,
+            return {"temperature": temperature,
                     "max_output_tokens": max_tokens,
                     "response_mime_type": "application/json"}
 
@@ -202,7 +209,11 @@ def _truncated(resp) -> bool:
         return False
 
 
-def _call(prompt: str, max_tokens: int = MAX_OUTPUT_TOKENS) -> str:
+def _call(
+    prompt: str,
+    max_tokens: int = MAX_OUTPUT_TOKENS,
+    temperature: float = 0.0,
+) -> str:
     """One call, with backoff on rate limits and one retry on truncation."""
     client = _get_client()
     delay = 5.0
@@ -211,7 +222,10 @@ def _call(prompt: str, max_tokens: int = MAX_OUTPUT_TOKENS) -> str:
         try:
             _throttle()
             resp = client.models.generate_content(
-                model=MODEL, contents=prompt, config=_config(budget))
+                model=MODEL,
+                contents=prompt,
+                config=_config(budget, temperature=temperature),
+            )
             _stats["calls"] += 1
             text = getattr(resp, "text", "") or ""
             if (_truncated(resp) or not text.strip()) and budget < 16384:

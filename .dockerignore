@@ -13,8 +13,6 @@ venv
 .env
 *.db
 
-sdoc-hackathon-docker
-
 submission.json
 reports.json
 
@@ -24,3 +22,5 @@ web/dist
 docs
 tests
 *.md
+
+

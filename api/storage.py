@@ -294,3 +294,8 @@ def update_result_after_review(
     save_result(email_id, result)
 
     return result
+
+def clear_results() -> None:
+    with _connect() as conn:
+        conn.execute("DELETE FROM results")
+        conn.commit()

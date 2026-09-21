@@ -32,8 +32,9 @@ COPY sdoc ./sdoc
 # Hackathon dataset used by FolderSource
 COPY sdoc-hackathon-bundle ./sdoc-hackathon-bundle
 
-# Organisers' dataset generator, used for seeded runs
-COPY sdoc-hackathon-docker/data_v2 ./sdoc-hackathon-docker/data_v2
+# Organisers' dataset generator used for seeded runs
+RUN mkdir -p /app/sdoc-hackathon-docker/data_v2
+COPY sdoc-hackathon-docker/data_v2/*.py ./sdoc-hackathon-docker/data_v2/
 
 # Cached Gemini classifications, so the deployed service reproduces our
 # numbers with no API key and cannot be broken by a rate limit.
