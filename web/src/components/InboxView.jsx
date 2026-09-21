@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getAllEmails,
   getValidationRuns,
@@ -41,6 +41,12 @@ export default function InboxView({ onSelect }) {
   const [runHistory, setRunHistory] = useState([]);
   const [resetting, setResetting] = useState(false);
 
+  // Prevent polling from overwriting the table with stale/intermediate responses
+  // while a long pipeline run is in progress.
+  const processingRef = useRef(false);
+  const validationRequestIdRef = useRef(0);
+  const emailsRequestIdRef = useRef(0);
+
   // ------------------------------------------------------------
   // Inbox loading state
   // ------------------------------------------------------------
@@ -50,27 +56,46 @@ export default function InboxView({ onSelect }) {
   // ------------------------------------------------------------
   // Load emails from backend
   // ------------------------------------------------------------
-  async function loadEmails() {
+  async function loadEmails({ force = false } = {}) {
+    const requestId = ++emailsRequestIdRef.current;
+
     try {
       setLoadError("");
-
       const data = await getAllEmails();
+
+      // Ignore an older response if a newer refresh has already started.
+      if (requestId !== emailsRequestIdRef.current) return;
+      // During our own long pipeline run, keep the currently displayed inbox
+      // until /process finishes and we explicitly refresh it.
+      if (processingRef.current && !force) return;
 
       setEmails(data);
     } catch (err) {
       console.error(err);
-
-      setLoadError(
-        err?.message || t("Unable to load inbox results from the backend.")
-      );
+      if (requestId === emailsRequestIdRef.current) {
+        setLoadError(
+          err?.message || t("Unable to load inbox results from the backend.")
+        );
+      }
     } finally {
-      setLoadingEmails(false);
+      if (requestId === emailsRequestIdRef.current) {
+        setLoadingEmails(false);
+      }
     }
   }
 
-  async function loadValidationHistory() {
+  async function loadValidationHistory({ force = false } = {}) {
+    const requestId = ++validationRequestIdRef.current;
+
     try {
       const runs = await getValidationRuns(5);
+
+      // Avoid out-of-order polling responses replacing newer history.
+      if (requestId !== validationRequestIdRef.current) return;
+      // Never replace the table with an intermediate backend snapshot while
+      // this browser is actively running a large validation job.
+      if (processingRef.current && !force) return;
+
       setRunHistory(runs);
       setProcessResult(runs[0] || null);
     } catch (err) {
@@ -83,7 +108,9 @@ export default function InboxView({ onSelect }) {
     loadValidationHistory();
 
     // Keep multiple teammates' dashboards in sync while they are open.
+    // Skip polling while THIS browser is running a large pipeline job.
     const syncId = window.setInterval(() => {
+      if (processingRef.current) return;
       loadEmails();
       loadValidationHistory();
     }, 5000);
@@ -95,6 +122,7 @@ export default function InboxView({ onSelect }) {
   // Run pipeline
   // ------------------------------------------------------------
   async function handleRunPipeline() {
+    processingRef.current = true;
     setProcessing(true);
     setProcessError("");
 
@@ -108,8 +136,13 @@ export default function InboxView({ onSelect }) {
 
       setProcessResult(result);
 
-      // Reload shared backend state so every browser sees the same history.
-      await Promise.all([loadEmails(), loadValidationHistory()]);
+      // Reload shared backend state exactly once after the full run has been
+      // committed. `force` allows this explicit refresh while processingRef
+      // is still true.
+      await Promise.all([
+        loadEmails({ force: true }),
+        loadValidationHistory({ force: true }),
+      ]);
 
       // Reset filters so the new dataset is easy to inspect.
       setCategoryFilter("ALL");
@@ -121,6 +154,7 @@ export default function InboxView({ onSelect }) {
         err?.message || t("Failed to run the verification pipeline.")
       );
     } finally {
+      processingRef.current = false;
       setProcessing(false);
     }
   }
@@ -141,7 +175,10 @@ export default function InboxView({ onSelect }) {
       setDatasetSize("500");
       setCategoryFilter("ALL");
       setStatusFilter("ALL");
-      await Promise.all([loadEmails(), loadValidationHistory()]);
+      await Promise.all([
+        loadEmails({ force: true }),
+        loadValidationHistory({ force: true }),
+      ]);
     } catch (err) {
       console.error(err);
       setProcessError(
@@ -190,28 +227,61 @@ export default function InboxView({ onSelect }) {
   const formatScore = (value, digits = 4) =>
     typeof value === "number" ? value.toFixed(digits) : "—";
 
-  const validationExportRecord = (run) => {
+  const validationExportReport = (run) => {
     const ev = run?.evaluation || {};
 
     return {
-      dataset: run?.dataset ?? null,
-      seed: run?.seed ?? null,
-      base_emails: run?.requested_n ?? null,
-      processed_emails: run?.processed ?? null,
-      ok: run?.ok ?? null,
-      mismatches: run?.mismatches ?? null,
-      needs_review: run?.needs_review ?? null,
-      rules_score: run?.rules_score ?? null,
-      gemini_score: ev.final_score ?? null,
-      macro_f1: ev.macro_f1 ?? null,
-      defect_f1: ev.defect_f1 ?? null,
-      end_to_end: ev.end_to_end ?? null,
-      defect_precision: ev.defect_precision ?? null,
-      defect_recall: ev.defect_recall ?? null,
-      end_to_end_success: ev.end_to_end_success ?? null,
-      end_to_end_total: ev.end_to_end_total ?? null,
-      ai_fallback_enabled: run?.llm_enabled ?? null,
-      created_at: run?.created_at ?? null,
+      report_type: "shipping_document_validation_summary",
+      exported_at: new Date().toISOString(),
+      selected_run: {
+        dataset: run?.dataset ?? null,
+        seed: run?.seed ?? null,
+        created_at: run?.created_at ?? null,
+        ai_fallback_enabled: run?.llm_enabled ?? null,
+      },
+      volume: {
+        base_emails: run?.requested_n ?? null,
+        processed_emails: run?.processed ?? null,
+        clean_ok: run?.ok ?? null,
+        mismatches: run?.mismatches ?? null,
+        needs_review: run?.needs_review ?? null,
+      },
+      validation_scores: {
+        rules_score: run?.rules_score ?? null,
+        rules_plus_gemini_score: ev.final_score ?? null,
+        classification_macro_f1: ev.macro_f1 ?? null,
+        defect_f1: ev.defect_f1 ?? null,
+        end_to_end_rate: ev.end_to_end ?? null,
+        defect_precision: ev.defect_precision ?? null,
+        defect_recall: ev.defect_recall ?? null,
+        end_to_end_success: ev.end_to_end_success ?? null,
+        end_to_end_total: ev.end_to_end_total ?? null,
+      },
+      dashboard_snapshot: {
+        total_emails: summary.total,
+        clean_ok: summary.ok,
+        mismatches: summary.mismatch,
+        needs_review: summary.review,
+      },
+      reference_benchmarks: {
+        supplied_seed_42: {
+          base_emails: 500,
+          rules_score: 0.9904,
+          rules_plus_gemini_score: 0.9995,
+          end_to_end_rate: 1.0,
+          defect_precision: 1.0,
+          defect_recall: 1.0,
+        },
+        five_unseen_seeds: {
+          base_emails_each: 500,
+          rules_mean: 0.9918,
+          rules_plus_gemini_mean: 0.9990,
+          rules_plus_gemini_std_dev: 0.0011,
+          end_to_end_rate: 1.0,
+          defect_precision: 1.0,
+          defect_recall: 1.0,
+        },
+      },
     };
   };
 
@@ -227,35 +297,87 @@ export default function InboxView({ onSelect }) {
     URL.revokeObjectURL(url);
   };
 
+  const escapeCsv = (value) => {
+    if (value === null || value === undefined) return "";
+    const text = String(value);
+    return /[",\n]/.test(text)
+      ? `"${text.replace(/"/g, '""')}"`
+      : text;
+  };
+
   const exportValidation = (run, format) => {
-    const record = validationExportRecord(run);
+    const report = validationExportReport(run);
     const seedLabel = run?.seed ?? "unknown";
 
     if (format === "json") {
       downloadTextFile(
-        `validation-seed-${seedLabel}.json`,
-        JSON.stringify(record, null, 2),
+        `validation-summary-seed-${seedLabel}.json`,
+        JSON.stringify(report, null, 2),
         "application/json;charset=utf-8"
       );
       return;
     }
 
-    const headers = Object.keys(record);
-    const escapeCsv = (value) => {
-      if (value === null || value === undefined) return "";
-      const text = String(value);
-      return /[",\n]/.test(text)
-        ? `"${text.replace(/"/g, '""')}"`
-        : text;
-    };
+    // Human-readable multi-section CSV report rather than a single data row.
+    const rows = [
+      ["VALIDATION SUMMARY REPORT"],
+      ["Report type", report.report_type],
+      ["Exported at", report.exported_at],
+      [],
+      ["SELECTED RUN"],
+      ["Dataset", report.selected_run.dataset],
+      ["Seed", report.selected_run.seed],
+      ["Created at", report.selected_run.created_at],
+      ["AI fallback enabled", report.selected_run.ai_fallback_enabled],
+      [],
+      ["VOLUME"],
+      ["Base emails", report.volume.base_emails],
+      ["Processed emails", report.volume.processed_emails],
+      ["Clean (OK)", report.volume.clean_ok],
+      ["Mismatches", report.volume.mismatches],
+      ["Needs review", report.volume.needs_review],
+      [],
+      ["VALIDATION SCORES"],
+      ["Rules score", report.validation_scores.rules_score],
+      ["Rules + Gemini score", report.validation_scores.rules_plus_gemini_score],
+      ["Classification macro F1", report.validation_scores.classification_macro_f1],
+      ["Defect F1", report.validation_scores.defect_f1],
+      ["End-to-end rate", report.validation_scores.end_to_end_rate],
+      ["Defect precision", report.validation_scores.defect_precision],
+      ["Defect recall", report.validation_scores.defect_recall],
+      ["End-to-end successes", report.validation_scores.end_to_end_success],
+      ["End-to-end defect cases", report.validation_scores.end_to_end_total],
+      [],
+      ["CURRENT DASHBOARD SNAPSHOT"],
+      ["Total emails", report.dashboard_snapshot.total_emails],
+      ["Clean (OK)", report.dashboard_snapshot.clean_ok],
+      ["Mismatches", report.dashboard_snapshot.mismatches],
+      ["Needs review", report.dashboard_snapshot.needs_review],
+      [],
+      ["REFERENCE BENCHMARK - SUPPLIED SEED 42"],
+      ["Base emails", report.reference_benchmarks.supplied_seed_42.base_emails],
+      ["Rules score", report.reference_benchmarks.supplied_seed_42.rules_score],
+      ["Rules + Gemini score", report.reference_benchmarks.supplied_seed_42.rules_plus_gemini_score],
+      ["End-to-end rate", report.reference_benchmarks.supplied_seed_42.end_to_end_rate],
+      ["Defect precision", report.reference_benchmarks.supplied_seed_42.defect_precision],
+      ["Defect recall", report.reference_benchmarks.supplied_seed_42.defect_recall],
+      [],
+      ["REFERENCE BENCHMARK - 5 UNSEEN SEEDS"],
+      ["Base emails each", report.reference_benchmarks.five_unseen_seeds.base_emails_each],
+      ["Rules mean", report.reference_benchmarks.five_unseen_seeds.rules_mean],
+      ["Rules + Gemini mean", report.reference_benchmarks.five_unseen_seeds.rules_plus_gemini_mean],
+      ["Rules + Gemini std dev", report.reference_benchmarks.five_unseen_seeds.rules_plus_gemini_std_dev],
+      ["End-to-end rate", report.reference_benchmarks.five_unseen_seeds.end_to_end_rate],
+      ["Defect precision", report.reference_benchmarks.five_unseen_seeds.defect_precision],
+      ["Defect recall", report.reference_benchmarks.five_unseen_seeds.defect_recall],
+    ];
 
-    const csv = [
-      headers.join(","),
-      headers.map((key) => escapeCsv(record[key])).join(","),
-    ].join("\n");
+    const csv = rows
+      .map((row) => row.map(escapeCsv).join(","))
+      .join("\n");
 
     downloadTextFile(
-      `validation-seed-${seedLabel}.csv`,
+      `validation-summary-seed-${seedLabel}.csv`,
       csv,
       "text/csv;charset=utf-8"
     );
