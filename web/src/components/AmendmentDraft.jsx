@@ -22,22 +22,18 @@ export default function AmendmentDraft({ emailId }) {
 
   const showToast = useToastStore((state) => state.showToast);
 
-  async function load() {
+  async function load(isRegenerate = false) {
     setLoading(true);
     setError(null);
     try {
-      const d = await getAmendment(emailId);
+      const d = await getAmendment(emailId, isRegenerate);
       setDraft(d);
       setBody(d.body);
     } catch (e) {
-      // Surface the real reason. The common one is pointing at a deployed
-      // image that predates this endpoint, which returns 404.
       const msg = e?.message || "";
       setError(
         /404|not found/i.test(msg)
-          ? "This API does not have the amendment endpoint yet - the deployed image is older than the code. Point VITE_API_BASE_URL at a current backend, or redeploy."
-          : /failed to fetch|networkerror/i.test(msg)
-          ? "Could not reach the API. Is the backend running?"
+          ? "This API does not have the amendment endpoint yet..."
           : msg || "Could not draft the request. Try again."
       );
     } finally {
@@ -46,11 +42,14 @@ export default function AmendmentDraft({ emailId }) {
   }
 
   async function copy() {
+    if (!draft) return;
     await navigator.clipboard.writeText(`${draft.subject}\n\n${body}`);
     setCopied(true);
     showToast("Amendment email copied to clipboard!");
     setTimeout(() => setCopied(false), 1500);
   }
+
+  if (!emailId) return null;
 
   if (!draft) {
     return (
@@ -58,8 +57,14 @@ export default function AmendmentDraft({ emailId }) {
         <button
           onClick={load}
           disabled={loading}
-          className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="rounded bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50 flex items-center gap-2 cursor-pointer"
         >
+          {loading && (
+            <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+          )}
           {loading ? "Drafting…" : "Draft amendment request"}
         </button>
         <p className="mt-2 text-sm text-slate-500">
@@ -94,15 +99,22 @@ export default function AmendmentDraft({ emailId }) {
       <div className="mt-3 flex items-center gap-3">
         <button
           onClick={copy}
-          className="rounded bg-slate-900 px-4 py-2 text-sm text-white"
+          className="rounded bg-slate-900 px-4 py-2 text-sm text-white cursor-pointer"
         >
           {copied ? "Copied" : "Copy"}
         </button>
         <button
-          onClick={load}
-          className="rounded border border-slate-300 px-4 py-2 text-sm"
+          onClick={() => load(true)}
+          disabled={loading}
+          className="rounded border border-slate-300 px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-50 cursor-pointer"
         >
-          Regenerate
+          {loading && (
+            <svg className="animate-spin h-4 w-4 text-slate-700" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+          )}
+          {loading ? "Regenerating..." : "Regenerate"}
         </button>
       </div>
     </div>
