@@ -1,5 +1,6 @@
 import { LANGUAGES, useLanguage, useT } from "../i18n";
 import { useTheme } from "../theme";
+
 export default function Nav({ view, setView }) {
   const t = useT();
   const { lang, setLang } = useLanguage();
