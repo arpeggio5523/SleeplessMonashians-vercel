@@ -32,6 +32,22 @@ export async function getAmendment(emailId, refresh = false) {
   );
 }
 
+// The original email: sender, subject, body, attachment names.
+export async function getEmailSource(emailId) {
+  return request(`/emails/${encodeURIComponent(emailId)}/source`);
+}
+
+// An attachment as the pipeline read it, line by line, with the lines each
+// field was extracted from marked. which: "si" | "bl".
+export async function getDocument(emailId, which) {
+  return request(`/emails/${encodeURIComponent(emailId)}/document/${which}`);
+}
+
+// Link to download the original attachment file.
+export function documentFileUrl(emailId, which) {
+  return `${API_BASE_URL}/emails/${encodeURIComponent(emailId)}/file/${which}`;
+}
+
 export async function getAllEmails() {
   const data = await request("/emails");
   return data.emails;

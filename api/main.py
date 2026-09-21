@@ -24,13 +24,14 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from sdoc.core.classify import classify as rule_classify
 from sdoc.core.contract import CONFIDENCE_THRESHOLD
 from sdoc.core.pipeline import FolderSource, process_email, run
-from sdoc.core.ingest import poppler_path
+from sdoc.core.ingest import ingest, poppler_path
 from sdoc.core.aliases import learn
 
 from api.storage import (  # noqa: I001
@@ -290,6 +291,7 @@ def process_inbox(request: ProcessRequest = ProcessRequest()):
         )
         clear_results()
         save_results(results)
+        _set_loaded_dataset(dataset_name)
 
         review_count = sum(
             1
@@ -526,6 +528,121 @@ def amendment_draft(email_id: str, refresh: bool = False):
         "defect_fields": stored.get("defect_fields", []),
         **draft,
     }
+
+
+# ---------------------------------------------------------------------------
+# Source documents - the email and its attachments, with highlights
+# ---------------------------------------------------------------------------
+#
+# Generated datasets are deleted once processed, but reuse filenames such as
+# email_004_SI.txt. Serving documents after a seeded run would therefore show
+# the SUPPLIED dataset's file under a generated email's id - silently wrong.
+# So we record which dataset is loaded and refuse when it is not ours.
+
+def _dataset_marker() -> Path:
+    from api.storage import DB_PATH
+    return Path(DB_PATH).parent / "dataset.txt"
+
+
+def _set_loaded_dataset(name: str) -> None:
+    m = _dataset_marker()
+    m.parent.mkdir(parents=True, exist_ok=True)
+    m.write_text(name, encoding="utf-8")
+
+
+def _loaded_dataset() -> str:
+    m = _dataset_marker()
+    return m.read_text(encoding="utf-8").strip() if m.exists() else "supplied"
+
+
+def _source_email(email_id: str) -> dict:
+    if _loaded_dataset() != "supplied":
+        raise HTTPException(
+            status_code=409,
+            detail=(f"The loaded results come from a generated dataset "
+                    f"({_loaded_dataset()}), whose files are not kept. "
+                    f"Run POST /process without a seed to view documents."),
+        )
+    email = next((e for e in get_source().emails()
+                  if e["email_id"] == email_id), None)
+    if email is None:
+        raise HTTPException(status_code=404, detail=f"{email_id} not found")
+    return email
+
+
+def _attachment_path(email: dict, which: str) -> str:
+    atts = email.get("attachments") or []
+    idx = {"si": 0, "bl": 1}[which]
+    if idx >= len(atts):
+        raise HTTPException(status_code=404,
+                            detail=f"This email has no {which.upper()} attachment.")
+    return atts[idx]
+
+
+@app.get("/emails/{email_id}/source")
+def email_source(email_id: str):
+    """The original email: sender, subject, body and attachment names."""
+    email = _source_email(email_id)
+    return {
+        "email_id": email_id,
+        "from": email.get("from"),
+        "to": email.get("to"),
+        "date": email.get("date") or email.get("received"),
+        "subject": email.get("subject"),
+        "body": email.get("body"),
+        "attachments": email.get("attachments") or [],
+    }
+
+
+@app.get("/emails/{email_id}/document/{which}")
+def email_document(email_id: str, which: Literal["si", "bl"]):
+    """
+    The attachment as the pipeline read it, line by line, with the lines each
+    field was extracted from marked. Line numbers are the same ones stored in
+    every field's provenance, so the highlights point at exactly the text the
+    comparison used.
+    """
+    email = _source_email(email_id)
+    path = _attachment_path(email, which)
+    read = ingest(path, get_source().attachment(path))
+
+    # identical split to extract.py, so line N here is line N in provenance
+    lines = [l.rstrip() for l in (read.text or "").split("\n")]
+
+    highlights = []
+    stored = get_result(email_id)
+    for c in (stored or {}).get("comparisons", []):
+        src = ((c.get(which) or {}).get("source") or {})
+        line = src.get("line", -1)
+        if isinstance(line, int) and 1 <= line <= len(lines):
+            highlights.append({
+                "line": line,
+                "field": c["field"],
+                "status": c["status"],            # match | mismatch | uncertain
+                "label": src.get("label_seen", ""),
+            })
+
+    return {
+        "email_id": email_id,
+        "which": which,
+        "path": path,
+        "ingest_method": read.method,
+        "readable": read.readable,
+        "warnings": read.warnings,
+        "lines": lines,
+        "highlights": highlights,
+    }
+
+
+@app.get("/emails/{email_id}/file/{which}")
+def email_file(email_id: str, which: Literal["si", "bl"]):
+    """The original attachment file, for "Open original"."""
+    email = _source_email(email_id)
+    rel = _attachment_path(email, which)
+    full = (BUNDLE_PATH / rel).resolve()
+    if BUNDLE_PATH.resolve() not in full.parents or not full.is_file():
+        raise HTTPException(status_code=404, detail="Attachment file not found.")
+    return FileResponse(full, filename=full.name)
 
 
 # ---------------------------------------------------------------------------

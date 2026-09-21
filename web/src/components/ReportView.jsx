@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { getEmail, submitReview, retryEmailProcess, API_BASE_URL } from "../data/reports";
+import { getEmail, submitReview, retryEmailProcess } from "../data/reports";
 import AmendmentDraft from "./AmendmentDraft";
+import { DocumentPane, EmailPane, SideBySide } from "./DocumentViewer";
 
 export default function ReportView({ emailId, onBack }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("SI");
+  const [activeTab, setActiveTab] = useState("EMAIL");
+  const [focusField, setFocusField] = useState(null);
 
   // Multi-field Form State for Human Review
   const [corrections, setCorrections] = useState({});
@@ -16,6 +18,8 @@ export default function ReportView({ emailId, onBack }) {
     getEmail(emailId)
       .then((res) => {
         setData(res);
+        setFocusField(null);
+        setActiveTab(res.comparisons?.length ? "SI" : "EMAIL");
         if (res.comparisons) {
           const initialValues = {};
           res.comparisons.forEach((comp) => {
@@ -121,10 +125,10 @@ export default function ReportView({ emailId, onBack }) {
       {/* Dynamic Grid Layout */}
       <div className={`grid grid-cols-1 ${hasComparisons ? 'lg:grid-cols-12' : 'lg:grid-cols-1'} gap-8 items-start w-full`}>
         
-        {/* LEFT COLUMN: Raw Document Context Viewer */}
-        <div className={`flex flex-col border border-neutral-200 rounded-xl bg-white overflow-hidden shadow-xs ${hasComparisons ? 'lg:col-span-6 h-[820px]' : 'w-full max-h-[500px]'}`}>
+        {/* LEFT COLUMN: the original email and its attachments, as read */}
+        <div className={`flex flex-col border border-neutral-200 rounded-xl bg-white overflow-hidden shadow-xs ${hasComparisons ? 'lg:col-span-6 h-[820px]' : 'w-full h-[560px]'}`}>
           <div className="flex border-b border-neutral-200 bg-neutral-50">
-            {["SI", "BL"].map((tab) => (
+            {(isComparison ? ["EMAIL", "SI", "BL"] : ["EMAIL"]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -132,51 +136,15 @@ export default function ReportView({ emailId, onBack }) {
                   activeTab === tab ? "border-b-2 border-blue-600 text-blue-700 bg-white" : "text-neutral-500 hover:bg-neutral-100"
                 }`}
               >
-                Raw Document: {tab}
+                {tab === "EMAIL" ? "Email" : `Raw Document: ${tab}`}
               </button>
             ))}
           </div>
-          <div className="p-6 overflow-y-auto text-sm font-mono text-neutral-700 bg-neutral-50/50 flex-1 space-y-4">
-            <p className="text-xs text-neutral-400 font-sans uppercase tracking-wider font-bold">
-              Document Path: {data[activeTab.toLowerCase()]?.path || "N/A"}
-            </p>
-            
-            {hasComparisons ? (
-              comparisons.map((comp) => (
-                 <div key={comp.field} className="p-3 bg-white border border-neutral-200 rounded-lg shadow-2xs">
-                   <span className="text-xs font-bold text-blue-600 font-sans uppercase">[{comp.field}]</span>
-                   <p className="mt-1 text-neutral-800 whitespace-pre-wrap">{comp[activeTab.toLowerCase()]?.source?.snippet || "Not extracted"}</p>
-                 </div>
-              ))
+          <div className="flex-1 min-h-0">
+            {activeTab === "EMAIL" ? (
+              <EmailPane emailId={emailId} />
             ) : (
-              <div className="p-6 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-sm font-sans">
-                <p className="mb-3 font-bold">No snippets extracted. The system aborted comparison.</p>
-                {data[activeTab.toLowerCase()]?.path && (
-                  <a 
-                    href={`${API_BASE_URL}/${data[activeTab.toLowerCase()].path}`}
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2.5 rounded-lg transition-colors shadow-sm"
-                  >
-                    Open Original File
-                  </a>
-                )}
-              </div>
-            )}
-
-            {data[activeTab.toLowerCase()]?.readable !== false &&
-              data[activeTab.toLowerCase()]?.ingest_method === "ocr" && (
-               <p className="text-amber-800 font-sans font-bold mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                 Scanned document, read by OCR. Values have been pre-filled but were
-                 not compared - OCR misreads look plausible, so please check each one
-                 against the original.
-               </p>
-            )}
-
-            {data[activeTab.toLowerCase()]?.readable === false && (
-               <p className="text-rose-600 font-sans font-bold mt-4 p-4 bg-rose-50 border border-rose-200 rounded-lg">
-                 ⚠️ Document is unreadable or unsupported format. Please review original attachment manually.
-               </p>
+              <DocumentPane emailId={emailId} which={activeTab.toLowerCase()} focusField={focusField} />
             )}
           </div>
         </div>
@@ -240,6 +208,7 @@ export default function ReportView({ emailId, onBack }) {
               <div className="flex-1 overflow-y-auto space-y-3 pr-1">
                 {comparisons?.map((field) => {
                   const isMismatched = field.status !== 'match';
+                  const isUncertain = field.status === 'uncertain';
                   return (
                     <div 
                       key={field.field} 
@@ -248,10 +217,22 @@ export default function ReportView({ emailId, onBack }) {
                       }`}
                     >
                       <div className="flex justify-between items-center mb-2">
-                        <p className="text-xs font-extrabold text-neutral-700 uppercase tracking-wider">{field.field.replace(/_/g, " ")}</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFocusField(field.field);
+                            if (activeTab === "EMAIL") setActiveTab("SI");
+                          }}
+                          title="Show this field in the source documents"
+                          className="text-xs font-extrabold text-neutral-700 uppercase tracking-wider hover:text-blue-700 cursor-pointer"
+                        >
+                          {field.field.replace(/_/g, " ")} ↗
+                        </button>
                         {isMismatched && (
-                          <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider">
-                            Mismatch
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider ${
+                            isUncertain ? "bg-neutral-200 text-neutral-700" : "bg-amber-200 text-amber-900"
+                          }`}>
+                            {isUncertain ? "Uncertain" : "Mismatch"}
                           </span>
                         )}
                       </div>
@@ -308,8 +289,15 @@ export default function ReportView({ emailId, onBack }) {
             </div>
           )}
 
+        
         </div>
       </div>
+
+      {hasComparisons && (
+        <div className="mt-8">
+          <SideBySide emailId={emailId} focusField={focusField} />
+        </div>
+      )}
     </div>
   );
 }
