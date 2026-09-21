@@ -343,7 +343,7 @@ def get_email(email_id: str):
 # ---------------------------------------------------------------------------
 
 @app.get("/emails/{email_id}/amendment")
-def amendment_draft(email_id: str):
+def amendment_draft(email_id: str, refresh: bool = False):
     """
     Draft the email an operator would send to have the draft BL corrected.
 
@@ -375,7 +375,6 @@ def amendment_draft(email_id: str):
         raise HTTPException(status_code=503,
                             detail=f"Drafting unavailable: {exc}") from exc
 
-    # rebuild just enough of the EmailResult for the drafter
     def _field(d: dict) -> ExtractedField:
         src = (d or {}).get("source") or {}
         return ExtractedField(
@@ -400,7 +399,8 @@ def amendment_draft(email_id: str):
         (e for e in get_source().emails() if e["email_id"] == email_id), None
     )
 
-    draft = draft_amendment(_R, source_email)
+    # Pass the refresh flag down to draft_amendment
+    draft = draft_amendment(_R, source_email, refresh=refresh)
 
     if draft is None:
         raise HTTPException(status_code=409,
