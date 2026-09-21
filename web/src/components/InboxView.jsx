@@ -7,6 +7,12 @@ const statusColor = {
   NEEDS_REVIEW: "text-rose-700 bg-rose-50 border-rose-200",
 };
 
+const reasonDetails = {
+  UNREADABLE: "Document could not be parsed, likely a scan quality or corrupted file issue",
+  MISSING_FIELD: "One or more required fields were not found in the extracted data",
+  LOW_CONFIDENCE: "Extraction confidence fell below the review threshold",
+};
+
 export default function InboxView({ onSelect }) {
   const [emails, setEmails] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -40,7 +46,7 @@ export default function InboxView({ onSelect }) {
 
   return (
     <div className="max-w-7xl mx-auto px-8 pb-12">
-      
+
       {/* VALIDATION DASHBOARD CARD */}
       <div className="bg-white p-6 mb-8 border border-neutral-200 rounded-xl shadow-xs">
         <div className="flex justify-between items-center mb-4">
@@ -52,7 +58,7 @@ export default function InboxView({ onSelect }) {
             AI Fallback: ON
           </span>
         </div>
-        
+
         <table className="w-full text-sm text-left text-neutral-600 border-collapse">
           <thead className="text-xs text-neutral-500 uppercase bg-neutral-50 border-b border-neutral-200">
             <tr>
@@ -113,25 +119,55 @@ export default function InboxView({ onSelect }) {
 
       {/* EMAIL LIST TABLE/CARDS */}
       <div className="border border-neutral-200 rounded-xl divide-y divide-neutral-100 bg-white shadow-xs overflow-hidden">
-        {filtered.map((e) => (
-          <button
-            key={e.email_id}
-            onClick={() => onSelect(e.email_id)}
-            className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-neutral-50/80 transition-all group"
-          >
-            <div>
-              <p className="text-sm font-bold text-neutral-900 group-hover:text-blue-600 transition-colors">{e.email_id}</p>
-              <p className="text-xs text-neutral-500 mt-0.5 font-medium">{e.category.replaceAll("_", " ")}</p>
-            </div>
-            <span
-              className={`text-xs font-bold px-3 py-1 rounded-full border ${
-                statusColor[e.status] ?? "text-neutral-600 bg-neutral-50 border-neutral-200"
-              }`}
+        {filtered.map((e) => {
+          const detail = e.review_detail || reasonDetails[e.review_reason];
+
+          return (
+            <button
+              key={e.email_id}
+              onClick={() => onSelect(e.email_id)}
+              className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-neutral-50/80 transition-all group"
             >
-              {e.status.replace("_", " ")}
-            </span>
-          </button>
-        ))}
+              <div>
+                <p className="text-sm font-bold text-neutral-900 group-hover:text-blue-600 transition-colors">{e.email_id}</p>
+                <p className="text-xs text-neutral-500 mt-0.5 font-medium">{e.category.replaceAll("_", " ")}</p>
+              </div>
+              <div className="flex flex-col items-end gap-1.5">
+                <span
+                  className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                    statusColor[e.status] ?? "text-neutral-600 bg-neutral-50 border-neutral-200"
+                  }`}
+                >
+                  {e.status.replace("_", " ")}
+                </span>
+
+                {/* Inject the exact reason if it needs human review */}
+                {e.status === 'NEEDS_REVIEW' && e.review_reason && (
+                  <div className="group/reason relative">
+                    <span
+                      className="text-[10px] text-rose-600 font-extrabold uppercase tracking-wider cursor-help inline-flex items-center gap-1"
+                      title={detail || ""}
+                    >
+                      ↳ {e.review_reason.replace(/_/g, " ")}
+                      {detail && (
+                        <svg className="w-2.5 h-2.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                    </span>
+
+                    {/* Detail tooltip, appears on hover */}
+                    {detail && (
+                      <div className="absolute right-0 top-full mt-1 w-56 bg-neutral-900 text-white text-[11px] font-normal normal-case rounded-md px-3 py-2 opacity-0 invisible group-hover/reason:opacity-100 group-hover/reason:visible transition-all z-10 shadow-lg">
+                        {detail}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

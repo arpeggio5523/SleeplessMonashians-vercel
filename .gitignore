@@ -34,8 +34,12 @@ poppler/
 #       --seed 42 --n 500 --out sdoc-hackathon-docker/data_v2
 # sdoc-hackathon-docker/data_v2/ground_truth.json
 
-# --- secrets ---
+# --- secrets and local config ---
 .env
+# Vite: per-developer API target. Committing it would force everyone onto
+# whatever URL one person was testing against.
+.env.local
+web/.env.local
 *.key
 service-account*.json
 
@@ -74,3 +78,6 @@ web/dist/
 # Local frontend configuration
 web/.env.local
 web/.env.*.local
+
+# Vite pre-bundled deps cache
+web/.vite/

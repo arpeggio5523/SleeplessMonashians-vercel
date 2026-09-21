@@ -10,14 +10,25 @@ async function request(path, options = {}) {
 
   if (!response.ok) {
     const detail = data?.detail;
-    throw new Error(
+    const error = new Error(
       typeof detail === "string"
         ? detail
         : `Request failed (${response.status})`
     );
+    // Keep the status so callers can tell "endpoint missing" from
+    // "endpoint said no".
+    error.status = response.status;
+    throw error;
   }
 
   return data;
+}
+
+export async function getAmendment(emailId, refresh = false) {
+  const url = refresh ? `/emails/${emailId}/amendment?refresh=true` : `/emails/${emailId}/amendment`;
+  const res = await fetch(`${API_BASE_URL}${url}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
 
 export async function getAllEmails() {
