@@ -24,6 +24,7 @@ USAGE
 from __future__ import annotations
 
 import re
+import time
 from typing import Any, Optional
 
 from . import gemini
@@ -126,13 +127,14 @@ Rules:
 - No placeholders such as [Name] or [Company].
 - Sign off as "Shipping Operations".
 - Six sentences at most in the body.
+- Always include a blank line (paragraph break) between each paragraph so the email is easy to read.
 
 Reply with JSON only:
 {{"subject": "<one line>", "body": "<the email, plain text, \\n for newlines>"}}
 """
 
 
-def draft_amendment(result, email: Optional[dict] = None) -> Optional[dict[str, str]]:
+def draft_amendment(result, email: Optional[dict] = None, refresh: bool = False) -> Optional[dict[str, str]]:
     """
     Draft an amendment request for a MISMATCH result.
 
@@ -160,11 +162,17 @@ def draft_amendment(result, email: Optional[dict] = None) -> Optional[dict[str, 
         discrepancies=lines,
     )
 
+    if refresh:
+        prompt += f"\n<!-- variation: {time.time()} -->"
+
     key = gemini._cache_key("amend\x00" + prompt)
-    hit = gemini._cache_get(key)
-    if hit and hit.get("body"):
-        return {"subject": hit["subject"], "body": hit["body"],
-                "source": hit.get("source", "llm")}
+    
+    # Skip cache lookup if refresh is requested
+    if not refresh:
+        hit = gemini._cache_get(key)
+        if hit and hit.get("body"):
+            return {"subject": hit["subject"], "body": hit["body"],
+                    "source": hit.get("source", "llm")}
 
     if gemini.MODE != "live":
         return _template(result, discrepancies, ref)
