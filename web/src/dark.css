@@ -1,0 +1,95 @@
+/*
+ * dark.css - dark theme, applied when <html> carries the "dark" class.
+ *
+ * GENERATED from the colour classes the components actually use, with values
+ * taken from Tailwind's own palette. It remaps those classes rather than
+ * adding dark: variants to every component, so no component markup changes.
+ *
+ * If a component starts using a colour class that isn't listed here, it
+ * simply keeps its light value in dark mode - regenerate to cover it.
+ */
+
+html.dark { color-scheme: dark; }
+html.dark body { background-color: #0a0a0a; color: #f5f5f5; }
+html.dark ::selection { background-color: rgba(59, 130, 246, 0.35); }
+html.dark ::placeholder { color: #737373; }
+html.dark .shadow-xs, html.dark .shadow-2xs, html.dark .shadow-sm, html.dark .shadow-md, html.dark .shadow-lg {
+  --tw-shadow-color: rgba(0, 0, 0, 0.6);
+}
+
+html.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.16); }
+html.dark .bg-amber-200 { background-color: rgba(245, 158, 11, 0.26); }
+html.dark .bg-amber-300 { background-color: rgba(245, 158, 11, 0.34); }
+html.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.1); }
+html.dark .bg-amber-50\/30 { background-color: rgba(245, 158, 11, 0.03); }
+html.dark .bg-amber-50\/50 { background-color: rgba(245, 158, 11, 0.05); }
+html.dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.1); }
+html.dark .bg-emerald-200 { background-color: rgba(16, 185, 129, 0.26); }
+html.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.1); }
+html.dark .bg-emerald-50\/50 { background-color: rgba(16, 185, 129, 0.05); }
+html.dark .bg-neutral-100 { background-color: #171717; }
+html.dark .bg-neutral-200 { background-color: #262626; }
+html.dark .bg-neutral-200\/70 { background-color: rgba(38, 38, 38, 0.7); }
+html.dark .bg-neutral-300 { background-color: #404040; }
+html.dark .bg-neutral-50 { background-color: #0a0a0a; }
+html.dark .bg-neutral-50\/50 { background-color: rgba(10, 10, 10, 0.5); }
+html.dark .bg-neutral-500 { background-color: #737373; }
+html.dark .bg-neutral-900 { background-color: #404040; }
+html.dark .bg-rose-100 { background-color: rgba(244, 63, 94, 0.16); }
+html.dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.1); }
+html.dark .bg-rose-50\/50 { background-color: rgba(244, 63, 94, 0.05); }
+html.dark .bg-slate-900 { background-color: #404040; }
+html.dark .bg-white { background-color: #171717; }
+html.dark .border-amber-200 { border-color: rgba(245, 158, 11, 0.38); }
+html.dark .border-blue-200 { border-color: rgba(59, 130, 246, 0.38); }
+html.dark .border-blue-600 { border-color: #3b82f6; }
+html.dark .border-emerald-200 { border-color: rgba(16, 185, 129, 0.38); }
+html.dark .border-neutral-100 { border-color: #262626; }
+html.dark .border-neutral-200 { border-color: #262626; }
+html.dark .border-neutral-200\/60 { border-color: rgba(38, 38, 38, 0.6); }
+html.dark .border-neutral-300 { border-color: #404040; }
+html.dark .border-rose-200 { border-color: rgba(244, 63, 94, 0.38); }
+html.dark .border-rose-300 { border-color: rgba(244, 63, 94, 0.5); }
+html.dark .border-slate-300 { border-color: #404040; }
+html.dark .disabled\:bg-neutral-100:disabled { background-color: #171717; }
+html.dark .disabled\:text-neutral-400:disabled { color: #737373; }
+html.dark .divide-neutral-100 > :not([hidden]) ~ :not([hidden]) { border-color: #262626; }
+html.dark .divide-neutral-200 > :not([hidden]) ~ :not([hidden]) { border-color: #262626; }
+html.dark .focus\:border-blue-500:focus { border-color: #3b82f6; }
+html.dark .focus\:ring-blue-100:focus { --tw-ring-color: rgba(59, 130, 246, 0.28); }
+html.dark .group:hover .group-hover\:text-blue-600 { color: #93c5fd; }
+html.dark .group:hover .group-hover\:text-rose-700 { color: #fda4af; }
+html.dark .hover\:bg-neutral-100:hover { background-color: #171717; }
+html.dark .hover\:bg-neutral-50\/50:hover { background-color: rgba(10, 10, 10, 0.5); }
+html.dark .hover\:bg-neutral-50\/80:hover { background-color: rgba(10, 10, 10, 0.8); }
+html.dark .hover\:bg-rose-100:hover { background-color: rgba(244, 63, 94, 0.16); }
+html.dark .hover\:bg-rose-50\/50:hover { background-color: rgba(244, 63, 94, 0.05); }
+html.dark .hover\:text-blue-700:hover { color: #93c5fd; }
+html.dark .hover\:text-neutral-700:hover { color: #d4d4d4; }
+html.dark .outline-blue-500 { outline-color: #3b82f6; }
+html.dark .text-amber-600 { color: #fcd34d; }
+html.dark .text-amber-700 { color: #fcd34d; }
+html.dark .text-amber-800 { color: #fde68a; }
+html.dark .text-amber-900 { color: #fde68a; }
+html.dark .text-blue-600 { color: #93c5fd; }
+html.dark .text-blue-700 { color: #93c5fd; }
+html.dark .text-blue-800 { color: #bfdbfe; }
+html.dark .text-emerald-600 { color: #6ee7b7; }
+html.dark .text-emerald-700 { color: #6ee7b7; }
+html.dark .text-emerald-800 { color: #a7f3d0; }
+html.dark .text-emerald-900 { color: #a7f3d0; }
+html.dark .text-neutral-300 { color: #525252; }
+html.dark .text-neutral-400 { color: #737373; }
+html.dark .text-neutral-500 { color: #a3a3a3; }
+html.dark .text-neutral-600 { color: #a3a3a3; }
+html.dark .text-neutral-700 { color: #d4d4d4; }
+html.dark .text-neutral-800 { color: #e5e5e5; }
+html.dark .text-neutral-900 { color: #f5f5f5; }
+html.dark .text-rose-500 { color: #fb7185; }
+html.dark .text-rose-600 { color: #fda4af; }
+html.dark .text-rose-700 { color: #fda4af; }
+html.dark .text-rose-800 { color: #fecdd3; }
+html.dark .text-rose-900 { color: #fecdd3; }
+html.dark .text-slate-400 { color: #737373; }
+html.dark .text-slate-500 { color: #a3a3a3; }
+html.dark .text-slate-700 { color: #d4d4d4; }
