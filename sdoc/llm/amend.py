@@ -24,7 +24,6 @@ USAGE
 from __future__ import annotations
 
 import re
-import time
 from typing import Any, Optional
 
 from . import gemini
@@ -163,7 +162,13 @@ def draft_amendment(result, email: Optional[dict] = None, refresh: bool = False)
     )
 
     if refresh:
-        prompt += f"\n<!-- variation: {time.time()} -->"
+        prompt += """
+
+This is a regenerated draft. Use noticeably different wording and sentence
+structure from the previous/typical amendment request while preserving every
+factual value exactly. Do not change, omit, or invent shipment information.
+Keep the tone courteous and professional.
+"""
 
     key = gemini._cache_key("amend\x00" + prompt)
     
@@ -178,7 +183,13 @@ def draft_amendment(result, email: Optional[dict] = None, refresh: bool = False)
         return _template(result, discrepancies, ref)
 
     try:
-        data = gemini._parse_json(gemini._call(prompt, max_tokens=2048))
+        data = gemini._parse_json(
+            gemini._call(
+                prompt,
+                max_tokens=2048,
+                temperature=0.7 if refresh else 0.0,
+            )
+        )
     except Exception as exc:
         print(f"  [amend] {result.email_id}: {exc}")
         return _template(result, discrepancies, ref)

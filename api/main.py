@@ -13,7 +13,12 @@ X / Platform responsibilities:
 
 from __future__ import annotations
 
+import shutil
+import subprocess
+import sys
+import tempfile
 import os
+
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal, Optional
@@ -39,6 +44,7 @@ from api.storage import (  # noqa: I001
     save_results,
     save_review,
     update_result_after_review,
+    clear_results,
 )
 
 
@@ -53,14 +59,67 @@ BUNDLE_PATH = Path(
     )
 )
 
+GENERATOR_PATH = Path(
+    os.getenv(
+        "SDOC_GENERATOR_PATH",
+        "sdoc-hackathon-docker/data_v2",
+    )
+)
 
 def get_source() -> FolderSource:
-    if not BUNDLE_PATH.exists():
+    """Return the original supplied hackathon dataset."""
+    if not (BUNDLE_PATH / "inbox").is_dir():
+        raise RuntimeError(f"Dataset folder not found: {BUNDLE_PATH}")
+    return FolderSource(BUNDLE_PATH)
+
+def generate_source(seed: int, n: int = 500) -> tuple[FolderSource, Path]:
+    """
+    Generate a temporary dataset using the organisers' generator.
+
+    Returns:
+        FolderSource pointing at the generated dataset
+        Path to the temporary directory
+    """
+
+    # Use an absolute path so subprocess does not accidentally
+    # duplicate the generator directory.
+    generator = (GENERATOR_PATH / "generate.py").resolve()
+
+    if not generator.exists():
         raise RuntimeError(
-            f"Dataset folder not found: {BUNDLE_PATH}"
+            f"Dataset generator not found: {generator}"
         )
 
-    return FolderSource(BUNDLE_PATH)
+    temp_dir = Path(
+        tempfile.mkdtemp(prefix=f"sdoc_seed_{seed}_")
+    ).resolve()
+
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                str(generator),
+                "--seed",
+                str(seed),
+                "--n",
+                str(n),
+                "--out",
+                str(temp_dir),
+            ],
+            cwd=str(generator.parent),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    except subprocess.CalledProcessError as exc:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+        raise RuntimeError(
+            f"Dataset generation failed: {exc.stderr}"
+        ) from exc
+
+    return FolderSource(temp_dir), temp_dir
 
 
 # ---------------------------------------------------------------------------
@@ -149,6 +208,10 @@ class ReviewRequest(BaseModel):
     corrected_value: Optional[str] = None
     label_seen: Optional[str] = None
 
+class ProcessRequest(BaseModel):
+    seed: Optional[int] = None
+    n: int = 500
+
 
 # ---------------------------------------------------------------------------
 # Health
@@ -178,23 +241,54 @@ def health():
 # ---------------------------------------------------------------------------
 
 @app.post("/process")
-def process_inbox():
+def process_inbox(request: ProcessRequest = ProcessRequest()):
     """
-    Run the team's real pipeline over the complete inbox.
+    Run the pipeline over either:
 
-    Results are persisted so the frontend can retrieve them through
-    /emails and /emails/{id}.
+    - the supplied dataset when no seed is provided
+    - a newly generated dataset when a seed is provided
+
+    Results are persisted for the frontend.
     """
+
+    temp_dir = None
 
     try:
-        source = get_source()
+        # ---------------------------------------------------------
+        # Select dataset
+        # ---------------------------------------------------------
+
+        if request.seed is None:
+            source = get_source()
+            dataset_name = "supplied"
+        else:
+            if request.n < 1 or request.n > 2000:
+                raise HTTPException(
+                    status_code=400,
+                    detail="n must be between 1 and 2000",
+                )
+
+            source, temp_dir = generate_source(
+                seed=request.seed,
+                n=request.n,
+            )
+
+            dataset_name = f"seed-{request.seed}"
+
+        # ---------------------------------------------------------
+        # Run pipeline
+        # ---------------------------------------------------------
 
         llm = _get_llm()
+
         if llm is not None:
             _warm_llm_cache(source)
 
-        results = run(source, llm_classify=llm)
-
+        results = run(
+            source,
+            llm_classify=llm,
+        )
+        clear_results()
         save_results(results)
 
         review_count = sum(
@@ -209,13 +303,26 @@ def process_inbox():
             if result.has_defect
         )
 
+        ok_count = sum(
+            1
+            for result in results.values()
+            if result.status == "OK"
+        )
+
         return {
             "message": "Inbox processed successfully",
+            "dataset": dataset_name,
+            "seed": request.seed,
+            "requested_n": request.n,
             "processed": len(results),
+            "ok": ok_count,
             "needs_review": review_count,
             "mismatches": mismatch_count,
             "llm_enabled": llm is not None,
         }
+
+    except HTTPException:
+        raise
 
     except Exception as exc:
         raise HTTPException(
@@ -223,6 +330,14 @@ def process_inbox():
             detail=f"Pipeline failed: {exc}",
         ) from exc
 
+    finally:
+        # The processed results are already in SQLite, so the generated
+        # files no longer need to stay on disk.
+        if temp_dir is not None:
+            shutil.rmtree(
+                temp_dir,
+                ignore_errors=True,
+            )
 
 # ---------------------------------------------------------------------------
 # Process one existing dataset email
