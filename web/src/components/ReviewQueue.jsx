@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { getReviewQueue } from "../data/reports";
-import ReportView from "./ReportView"; // Import your powerful new view!
+import ReportView from "./ReportView";
+import { useT } from "../i18n"; // Import your powerful new view!
 
 export default function ReviewQueue() {
+  const t = useT();
   const [queue, setQueue] = useState([]);
   const [selectedEmailId, setSelectedEmailId] = useState(null);
 
@@ -31,18 +33,18 @@ export default function ReviewQueue() {
     <div className="max-w-7xl mx-auto px-8 pb-12">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold text-neutral-900">Action Required</h2>
-          <p className="text-sm text-neutral-500 mt-1">Cases escalated for human review</p>
+          <h2 className="text-xl font-bold text-neutral-900">{t("Action Required")}</h2>
+          <p className="text-sm text-neutral-500 mt-1">{t("Cases escalated for human review")}</p>
         </div>
         <span className="bg-rose-100 text-rose-800 text-xs font-bold px-3 py-1 rounded-full">
-          {queue.length} Cases
+          {queue.length} {t("Cases")}
         </span>
       </div>
 
       <div className="border border-neutral-200 rounded-xl divide-y divide-neutral-100 bg-white shadow-xs overflow-hidden">
         {queue.length === 0 ? (
           <div className="p-12 text-center text-neutral-500 font-medium">
-            No items in the review queue! You're all caught up.
+            {t("No items in the review queue! You're all caught up.")}
           </div>
         ) : (
           queue.map((item) => (
@@ -56,13 +58,13 @@ export default function ReviewQueue() {
                   {item.email_id}
                 </p>
                 <p className="text-[10px] text-rose-500 font-extrabold uppercase tracking-wider mt-1">
-                  ↳ {item.review_reason?.replace(/_/g, " ") || "NEEDS REVIEW"}
+                  ↳ {t(item.review_reason?.replace(/_/g, " ") || "NEEDS REVIEW")}
                 </p>
               </div>
               
               {/* Call to action button on the row */}
               <span className="text-xs font-bold px-4 py-2 rounded-lg bg-neutral-900 text-white group-hover:bg-rose-600 transition-colors shadow-sm">
-                Open Workspace
+                {t("Open Workspace")}
               </span>
             </button>
           ))

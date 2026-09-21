@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { getEmail, submitReview, retryEmailProcess } from "../data/reports";
 import AmendmentDraft from "./AmendmentDraft";
 import { DocumentPane, EmailPane, SideBySide } from "./DocumentViewer";
+import { useT } from "../i18n";
 
 export default function ReportView({ emailId, onBack }) {
+  const t = useT();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("EMAIL");
@@ -31,7 +33,7 @@ export default function ReportView({ emailId, onBack }) {
           setCorrections(initialValues);
         }
       })
-      .catch(() => alert("Failed to fetch email details"))
+      .catch(() => alert(t("Failed to fetch email details")))
       .finally(() => setLoading(false));
   }, [emailId]);
 
@@ -46,11 +48,11 @@ export default function ReportView({ emailId, onBack }) {
         });
       }
       
-      alert("Successfully submitted all corrections!");
+      alert(t("Successfully submitted all corrections!"));
       const updatedData = await getEmail(emailId);
       setData(updatedData);
     } catch (error) {
-      alert("Failed to submit corrections: " + error.message);
+      alert(t("Failed to submit corrections:") + " " + error.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -63,7 +65,7 @@ export default function ReportView({ emailId, onBack }) {
       const updatedData = await getEmail(emailId);
       setData(updatedData);
     } catch (error) {
-      alert("Failed to confirm issue: " + error.message);
+      alert(t("Failed to confirm issue:") + " " + error.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -76,15 +78,15 @@ export default function ReportView({ emailId, onBack }) {
       const updatedData = await getEmail(emailId);
       setData(updatedData);
     } catch (error) {
-      alert("Failed to retry pipeline: " + error.message);
+      alert(t("Failed to retry pipeline:") + " " + error.message);
     } finally {
       setIsSubmitting(false);
     }
   }
 
   // Prevent destructuring crashes by returning early if loading or no data
-  if (loading) return <div className="p-8 text-neutral-500 font-medium">Loading {emailId}...</div>;
-  if (!data) return <div className="p-8 text-rose-500">Data not found.</div>;
+  if (loading) return <div className="p-8 text-neutral-500 font-medium">{t("Loading")} {emailId}...</div>;
+  if (!data) return <div className="p-8 text-rose-500">{t("Data not found.")}</div>;
 
   const {
     classification,
@@ -103,16 +105,16 @@ export default function ReportView({ emailId, onBack }) {
   const statusLabel =
     status === "OK"
       ? isComparison
-        ? "No mismatch detected"
-        : "No comparison needed"
-      : status.replaceAll("_", " ");
+        ? t("No mismatch detected")
+        : t("No comparison needed")
+      : t(status.replaceAll("_", " "));
 
   return (
     <div className="w-full flex flex-col">
       {/* Header Bar */}
       <div className="flex justify-between items-center mb-6">
         <button onClick={onBack} className="text-blue-600 text-sm font-semibold hover:underline flex items-center gap-1.5 cursor-pointer">
-          ← Back to Inbox
+          {t("← Back to Inbox")}
         </button>
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-extrabold text-neutral-900">{emailId}</h1>
@@ -136,7 +138,7 @@ export default function ReportView({ emailId, onBack }) {
                   activeTab === tab ? "border-b-2 border-blue-600 text-blue-700 bg-white" : "text-neutral-500 hover:bg-neutral-100"
                 }`}
               >
-                {tab === "EMAIL" ? "Email" : `Raw Document: ${tab}`}
+                {tab === "EMAIL" ? t("Email") : `${t("Raw Document")}: ${tab}`}
               </button>
             ))}
           </div>
@@ -162,12 +164,12 @@ export default function ReportView({ emailId, onBack }) {
           {isReviewNeeded && (
             <div className="bg-rose-50 border border-rose-200 p-5 rounded-xl shadow-xs">
               <h3 className="text-rose-900 font-extrabold text-sm mb-1 flex items-center gap-2">
-                <span>⚠️</span> Human Intervention Required: <span className="underline uppercase">{data.review_reason ? data.review_reason.replaceAll("_", " ") : "Unknown"}</span>
+                <span>⚠️</span> {t("Human Intervention Required:")} <span className="underline uppercase">{t(data.review_reason ? data.review_reason.replaceAll("_", " ") : "Unknown")}</span>
               </h3>
               <p className="text-xs text-rose-800 font-medium">
                 {hasFieldsToCorrect 
-                  ? "Verify reference values against the left viewer, adjust fields in the audit list below, and submit all changes at once." 
-                  : "Review the source files. You can confirm this failure or retry processing."}
+                  ? t("Verify reference values against the left viewer, adjust fields in the audit list below, and submit all changes at once.") 
+                  : t("Review the source files. You can confirm this failure or retry processing.")}
               </p>
               
               {!hasFieldsToCorrect && (
@@ -177,14 +179,14 @@ export default function ReportView({ emailId, onBack }) {
                     disabled={isSubmitting}
                     className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2 rounded-lg text-xs disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
                   >
-                    {isSubmitting ? "Processing..." : "Confirm Issue"}
+                    {isSubmitting ? t("Processing...") : t("Confirm Issue")}
                   </button>
                   <button 
                     onClick={handleRetry}
                     disabled={isSubmitting}
                     className="bg-white border border-rose-300 hover:bg-rose-100 text-rose-800 font-bold px-4 py-2 rounded-lg text-xs transition-colors disabled:opacity-50 cursor-pointer"
                   >
-                    {isSubmitting ? "Retrying..." : "Retry Pipeline"}
+                    {isSubmitting ? t("Retrying...") : t("Retry Pipeline")}
                   </button>
                 </div>
               )}
@@ -196,11 +198,11 @@ export default function ReportView({ emailId, onBack }) {
             <div className="border border-neutral-200 rounded-xl bg-white p-6 shadow-xs flex flex-col h-[740px] w-full">
               <div className="flex justify-between items-center mb-4 border-b border-neutral-100 pb-3">
                 <div>
-                  <h2 className="text-base font-extrabold text-neutral-900">Document Comparison & Audit Workspace</h2>
-                  <p className="text-xs text-neutral-500">Compare reference SI values with target BL data. Editable fields allow direct overrides.</p>
+                  <h2 className="text-base font-extrabold text-neutral-900">{t("Document Comparison & Audit Workspace")}</h2>
+                  <p className="text-xs text-neutral-500">{t("Compare reference SI values with target BL data. Editable fields allow direct overrides.")}</p>
                 </div>
                 <span className="text-xs font-bold text-neutral-500 bg-neutral-100 px-2.5 py-1 rounded-md">
-                  {comparisons?.length || 0} Fields Checked
+                  {comparisons?.length || 0} {t("Fields Checked")}
                 </span>
               </div>
 
@@ -223,16 +225,16 @@ export default function ReportView({ emailId, onBack }) {
                             setFocusField(field.field);
                             if (activeTab === "EMAIL") setActiveTab("SI");
                           }}
-                          title="Show this field in the source documents"
+                          title={t("Show this field in the source documents")}
                           className="text-xs font-extrabold text-neutral-700 uppercase tracking-wider hover:text-blue-700 cursor-pointer"
                         >
-                          {field.field.replace(/_/g, " ")} ↗
+                          {t(field.field.replace(/_/g, " "))} ↗
                         </button>
                         {isMismatched && (
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider ${
                             isUncertain ? "bg-neutral-200 text-neutral-700" : "bg-amber-200 text-amber-900"
                           }`}>
-                            {isUncertain ? "Uncertain" : "Mismatch"}
+                            {isUncertain ? t("Uncertain") : t("Mismatch")}
                           </span>
                         )}
                       </div>
@@ -240,11 +242,11 @@ export default function ReportView({ emailId, onBack }) {
                       <div className="grid grid-cols-2 gap-4 text-sm mt-2 pt-2 border-t border-neutral-200/60">
                         {/* SI Reference (Read-only) */}
                         <div>
-                          <span className="text-neutral-400 text-[10px] font-bold uppercase tracking-wider block mb-1">SI (Reference)</span>
+                          <span className="text-neutral-400 text-[10px] font-bold uppercase tracking-wider block mb-1">{t("SI (Reference)")}</span>
                           <span className="font-semibold text-neutral-900 block truncate">
                             {field.si?.raw || field.si?.value || "—"}
                             {field.si?.method === "ocr" && (
-                              <span className="ml-1.5 text-[10px] font-bold text-amber-600">OCR</span>
+                              <span className="ml-1.5 text-[10px] font-bold text-amber-600">{t("OCR")}</span>
                             )}
                           </span>
                         </div>
@@ -252,9 +254,9 @@ export default function ReportView({ emailId, onBack }) {
                         {/* BL Target / Editable Input */}
                         <div>
                           <span className="text-neutral-400 text-[10px] font-bold uppercase tracking-wider block mb-1">
-                            BL (Target Value)
+                            {t("BL (Target Value)")}
                             {field.bl?.method === "ocr" && (
-                              <span className="ml-1.5 text-amber-600">· OCR, verify</span>
+                              <span className="ml-1.5 text-amber-600">{t("· OCR, verify")}</span>
                             )}
                           </span>
                           {corrections[field.field] !== undefined ? (
@@ -283,7 +285,7 @@ export default function ReportView({ emailId, onBack }) {
                   disabled={isSubmitting}
                   className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-3 rounded-xl text-sm disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
                 >
-                  {isSubmitting ? "Submitting All Changes..." : "Confirm & Save All Corrections"}
+                  {isSubmitting ? t("Submitting All Changes...") : t("Confirm & Save All Corrections")}
                 </button>
               </div>
             </div>

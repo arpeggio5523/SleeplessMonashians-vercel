@@ -12,8 +12,10 @@
 import { useState } from "react";
 import { getAmendment } from "../data/reports";
 import { useToastStore } from "../store/useToastStore";
+import { useT } from "../i18n";
 
 export default function AmendmentDraft({ emailId }) {
+  const t = useT();
   const [draft, setDraft] = useState(null);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,8 +35,8 @@ export default function AmendmentDraft({ emailId }) {
       const msg = e?.message || "";
       setError(
         /404|not found/i.test(msg)
-          ? "This API does not have the amendment endpoint yet..."
-          : msg || "Could not draft the request. Try again."
+          ? t("This API does not have the amendment endpoint yet...")
+          : msg || t("Could not draft the request. Try again.")
       );
     } finally {
       setLoading(false);
@@ -45,7 +47,7 @@ export default function AmendmentDraft({ emailId }) {
     if (!draft) return;
     await navigator.clipboard.writeText(`${draft.subject}\n\n${body}`);
     setCopied(true);
-    showToast("Amendment email copied to clipboard!");
+    showToast(t("Amendment email copied to clipboard!"));
     setTimeout(() => setCopied(false), 1500);
   }
 
@@ -65,10 +67,10 @@ export default function AmendmentDraft({ emailId }) {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
             </svg>
           )}
-          {loading ? "Drafting…" : "Draft amendment request"}
+          {loading ? t("Drafting…") : t("Draft amendment request")}
         </button>
         <p className="mt-2 text-sm text-slate-500">
-          Writes the email asking the counterparty to correct the draft B/L.
+          {t("Writes the email asking the counterparty to correct the draft B/L.")}
         </p>
         {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
       </div>
@@ -78,14 +80,14 @@ export default function AmendmentDraft({ emailId }) {
   return (
     <div className="mt-8 border-t pt-6">
       <div className="mb-3 flex items-baseline justify-between">
-        <h3 className="font-medium">Amendment request</h3>
+        <h3 className="font-medium">{t("Amendment request")}</h3>
         <span className="text-xs text-slate-400">
-          {draft.source === "llm" ? "drafted by Gemini" : "template"} · review before sending
+          {draft.source === "llm" ? t("drafted by Gemini") : t("template")} {t("· review before sending")}
         </span>
       </div>
 
       <div className="mb-2 text-sm">
-        <span className="text-slate-500">Subject: </span>
+        <span className="text-slate-500">{t("Subject:")} </span>
         {draft.subject}
       </div>
 
@@ -101,7 +103,7 @@ export default function AmendmentDraft({ emailId }) {
           onClick={copy}
           className="rounded bg-slate-900 px-4 py-2 text-sm text-white cursor-pointer"
         >
-          {copied ? "Copied" : "Copy"}
+          {copied ? t("Copied") : t("Copy")}
         </button>
         <button
           onClick={() => load(true)}
@@ -114,7 +116,7 @@ export default function AmendmentDraft({ emailId }) {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
             </svg>
           )}
-          {loading ? "Regenerating..." : "Regenerate"}
+          {loading ? t("Regenerating...") : t("Regenerate")}
         </button>
       </div>
     </div>

@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { documentFileUrl, getDocument, getEmailSource } from "../data/reports";
+import { useT } from "../i18n";
 
 const STATUS = {
   mismatch: { row: "bg-amber-100", tag: "bg-amber-500 text-white", label: "mismatch" },
@@ -21,6 +22,7 @@ const pretty = (f) => f.replaceAll("_", " ");
 // ---------------------------------------------------------------------------
 
 export function DocumentPane({ emailId, which, compact = false, focusField = null }) {
+  const t = useT();
   const [doc, setDoc] = useState(null);
   const [error, setError] = useState(null);
   const firstMismatch = useRef(null);
@@ -31,7 +33,7 @@ export function DocumentPane({ emailId, which, compact = false, focusField = nul
     setError(null);
     getDocument(emailId, which)
       .then(setDoc)
-      .catch((e) => setError(e.message || "Could not load the document."));
+      .catch((e) => setError(e.message || t("Could not load the document.")));
   }, [emailId, which]);
 
   // bring the most important line into view: the focused field if one was
@@ -45,7 +47,7 @@ export function DocumentPane({ emailId, which, compact = false, focusField = nul
     return <p className="p-4 text-sm text-neutral-500 italic font-sans">{error}</p>;
   }
   if (!doc) {
-    return <p className="p-4 text-sm text-neutral-400 font-sans">Loading {which.toUpperCase()}…</p>;
+    return <p className="p-4 text-sm text-neutral-400 font-sans">{t("Loading")} {which.toUpperCase()}…</p>;
   }
 
   // line number -> highlights on that line (a line can carry several fields)
@@ -58,7 +60,7 @@ export function DocumentPane({ emailId, which, compact = false, focusField = nul
       <div className="min-w-0">
         <span className="text-xs font-bold text-neutral-800">{which.toUpperCase()}</span>
         <span className="ml-2 text-[11px] text-neutral-400 truncate">
-          {doc.path.split("/").pop()} · read as {doc.ingest_method}
+          {doc.path.split("/").pop()} {t("· read as")} {doc.ingest_method}
         </span>
       </div>
       <a
@@ -67,7 +69,7 @@ export function DocumentPane({ emailId, which, compact = false, focusField = nul
         rel="noreferrer"
         className="shrink-0 text-[11px] font-bold text-blue-600 hover:underline"
       >
-        Open original
+        {t("Open original")}
       </a>
     </div>
   );
@@ -77,7 +79,7 @@ export function DocumentPane({ emailId, which, compact = false, focusField = nul
       <div className="flex flex-col h-full">
         {header}
         <div className="p-4 text-sm font-sans text-rose-700 bg-rose-50">
-          No text could be recovered from this file.
+          {t("No text could be recovered from this file.")}
           {doc.warnings?.length > 0 && (
             <span className="block mt-1 text-xs text-rose-500">{doc.warnings.at(-1)}</span>
           )}
@@ -92,7 +94,7 @@ export function DocumentPane({ emailId, which, compact = false, focusField = nul
 
       {doc.ingest_method === "ocr" && (
         <p className="px-3 py-2 text-[11px] font-sans font-bold text-amber-800 bg-amber-50 border-b border-amber-200">
-          Scanned page - this is OCR text. Check values against the original.
+          {t("Scanned page - this is OCR text. Check values against the original.")}
         </p>
       )}
 
@@ -132,7 +134,7 @@ export function DocumentPane({ emailId, which, compact = false, focusField = nul
                           title={`matched label: ${h.label}`}
                           className={`ml-1 inline-block rounded px-1.5 text-[10px] font-sans font-bold ${STATUS[h.status].tag}`}
                         >
-                          {pretty(h.field)}
+                          {t(pretty(h.field))}
                         </span>
                       ))}
                     </td>
@@ -152,6 +154,7 @@ export function DocumentPane({ emailId, which, compact = false, focusField = nul
 // ---------------------------------------------------------------------------
 
 export function EmailPane({ emailId }) {
+  const t = useT();
   const [email, setEmail] = useState(null);
   const [error, setError] = useState(null);
 
@@ -162,7 +165,7 @@ export function EmailPane({ emailId }) {
   }, [emailId]);
 
   if (error) return <p className="p-4 text-sm text-neutral-500 italic font-sans">{error}</p>;
-  if (!email) return <p className="p-4 text-sm text-neutral-400 font-sans">Loading email…</p>;
+  if (!email) return <p className="p-4 text-sm text-neutral-400 font-sans">{t("Loading email…")}</p>;
 
   const row = (k, v) =>
     v ? (
@@ -174,12 +177,12 @@ export function EmailPane({ emailId }) {
 
   return (
     <div className="p-4 font-sans space-y-1.5 overflow-auto h-full">
-      {row("From", email.from)}
-      {row("To", email.to)}
-      {row("Date", email.date)}
-      {row("Subject", email.subject)}
+      {row(t("From"), email.from)}
+      {row(t("To"), email.to)}
+      {row(t("Date"), email.date)}
+      {row(t("Subject"), email.subject)}
       {email.attachments?.length > 0 &&
-        row("Attached", email.attachments.map((a) => a.split("/").pop()).join(", "))}
+        row(t("Attached"), email.attachments.map((a) => a.split("/").pop()).join(", "))}
       <pre className="mt-4 pt-4 border-t border-neutral-200 whitespace-pre-wrap text-sm text-neutral-800 font-sans">
         {email.body}
       </pre>
@@ -192,14 +195,15 @@ export function EmailPane({ emailId }) {
 // ---------------------------------------------------------------------------
 
 export function SideBySide({ emailId, focusField }) {
+  const t = useT();
   return (
     <div className="border border-neutral-200 rounded-xl bg-white overflow-hidden shadow-xs">
       <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
-        <h3 className="text-sm font-bold text-neutral-900">Source documents</h3>
+        <h3 className="text-sm font-bold text-neutral-900">{t("Source documents")}</h3>
         <div className="flex gap-3 text-[11px] font-sans text-neutral-500">
-          <span><span className="inline-block w-2.5 h-2.5 rounded-sm bg-amber-300 mr-1 align-middle" />mismatch</span>
-          <span><span className="inline-block w-2.5 h-2.5 rounded-sm bg-neutral-300 mr-1 align-middle" />uncertain</span>
-          <span><span className="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-200 mr-1 align-middle" />match</span>
+          <span><span className="inline-block w-2.5 h-2.5 rounded-sm bg-amber-300 mr-1 align-middle" />{t("mismatch")}</span>
+          <span><span className="inline-block w-2.5 h-2.5 rounded-sm bg-neutral-300 mr-1 align-middle" />{t("uncertain")}</span>
+          <span><span className="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-200 mr-1 align-middle" />{t("match")}</span>
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-neutral-200 h-[560px]">

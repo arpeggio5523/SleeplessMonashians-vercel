@@ -3,6 +3,7 @@ import {
   getAllEmails,
   processInbox,
 } from "../data/reports";
+import { useT } from "../i18n";
 
 const statusColor = {
   OK: "text-emerald-700 bg-emerald-50 border-emerald-200",
@@ -20,6 +21,7 @@ const reasonDetails = {
 };
 
 export default function InboxView({ onSelect }) {
+  const t = useT();
   const [emails, setEmails] = useState([]);
 
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -55,7 +57,7 @@ export default function InboxView({ onSelect }) {
       console.error(err);
 
       setLoadError(
-        err?.message || "Unable to load inbox results from the backend."
+        err?.message || t("Unable to load inbox results from the backend.")
       );
     } finally {
       setLoadingEmails(false);
@@ -95,7 +97,7 @@ export default function InboxView({ onSelect }) {
       console.error(err);
 
       setProcessError(
-        err?.message || "Failed to run the verification pipeline."
+        err?.message || t("Failed to run the verification pipeline.")
       );
     } finally {
       setProcessing(false);
@@ -141,22 +143,20 @@ export default function InboxView({ onSelect }) {
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-base font-bold text-neutral-900">
-                Run Verification Pipeline
+                {t("Run Verification Pipeline")}
               </h2>
 
               <span className="bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
-                Live Backend
+                {t("Live Backend")}
               </span>
             </div>
 
             <p className="text-xs text-neutral-500 mt-1 max-w-2xl leading-relaxed">
-              Generate a reproducible test dataset using a seed, then run the
-              emails through classification, document extraction and SI/BL
-              comparison.
+              {t("Generate a reproducible test dataset using a seed, then run the emails through classification, document extraction and SI/BL comparison.")}
             </p>
 
             <p className="text-[11px] text-neutral-400 mt-2">
-              Leave the seed empty to process the supplied dataset instead.
+              {t("Leave the seed empty to process the supplied dataset instead.")}
             </p>
           </div>
 
@@ -167,7 +167,7 @@ export default function InboxView({ onSelect }) {
                 htmlFor="dataset-seed"
                 className="block text-xs font-bold text-neutral-600 mb-1.5"
               >
-                Dataset Seed
+                {t("Dataset Seed")}
               </label>
 
               <input
@@ -187,7 +187,7 @@ export default function InboxView({ onSelect }) {
                 htmlFor="dataset-size"
                 className="block text-xs font-bold text-neutral-600 mb-1.5"
               >
-                Base Emails
+                {t("Base Emails")}
               </label>
 
               <input
@@ -235,10 +235,10 @@ export default function InboxView({ onSelect }) {
                     />
                   </svg>
 
-                  Processing...
+                  {t("Processing...")}
                 </span>
               ) : (
-                "Run Pipeline"
+                t("Run Pipeline")
               )}
             </button>
           </div>
@@ -248,12 +248,11 @@ export default function InboxView({ onSelect }) {
         {processing && (
           <div className="mt-5 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm font-semibold text-blue-800">
-              Processing dataset...
+              {t("Processing dataset...")}
             </p>
 
             <p className="text-xs text-blue-700 mt-1">
-              The backend is generating the dataset and running classification,
-              extraction and document comparison. This may take a moment.
+              {t("The backend is generating the dataset and running classification, extraction and document comparison. This may take a moment.")}
             </p>
           </div>
         )}
@@ -262,7 +261,7 @@ export default function InboxView({ onSelect }) {
         {processError && (
           <div className="mt-5 px-4 py-3 bg-rose-50 border border-rose-200 rounded-lg">
             <p className="text-sm font-bold text-rose-800">
-              Pipeline failed
+              {t("Pipeline failed")}
             </p>
 
             <p className="text-xs text-rose-700 mt-1">
@@ -277,13 +276,13 @@ export default function InboxView({ onSelect }) {
             <div className="flex items-start justify-between gap-6">
               <div>
                 <p className="text-sm font-bold text-emerald-800">
-                  Pipeline completed successfully
+                  {t("Pipeline completed successfully")}
                 </p>
 
                 <p className="text-xs text-emerald-700 mt-1">
                   {processResult.dataset
-                    ? `Dataset: ${processResult.dataset}`
-                    : "Dataset processed"}
+                    ? `${t("Dataset")}: ${processResult.dataset}`
+                    : t("Dataset processed")}
                   {processResult.seed !== null &&
                     processResult.seed !== undefined &&
                     ` · Seed ${processResult.seed}`}
@@ -293,7 +292,7 @@ export default function InboxView({ onSelect }) {
               <div className="flex flex-wrap justify-end gap-x-6 gap-y-2 text-xs">
                 {processResult.processed !== undefined && (
                   <div>
-                    <span className="text-emerald-600">Processed</span>
+                    <span className="text-emerald-600">{t("Processed")}</span>
                     <span className="font-bold text-emerald-900 ml-1.5">
                       {processResult.processed}
                     </span>
@@ -311,7 +310,7 @@ export default function InboxView({ onSelect }) {
 
                 {processResult.mismatches !== undefined && (
                   <div>
-                    <span className="text-emerald-600">Mismatch</span>
+                    <span className="text-emerald-600">{t("Mismatch")}</span>
                     <span className="font-bold text-emerald-900 ml-1.5">
                       {processResult.mismatches}
                     </span>
@@ -320,7 +319,7 @@ export default function InboxView({ onSelect }) {
 
                 {processResult.needs_review !== undefined && (
                   <div>
-                    <span className="text-emerald-600">Review</span>
+                    <span className="text-emerald-600">{t("Review")}</span>
                     <span className="font-bold text-emerald-900 ml-1.5">
                       {processResult.needs_review}
                     </span>
@@ -339,34 +338,34 @@ export default function InboxView({ onSelect }) {
         <div className="flex justify-between items-center mb-4">
           <div>
             <h2 className="text-base font-bold text-neutral-900">
-              Offline Validation Benchmarks
+              {t("Offline Validation Benchmarks")}
             </h2>
 
             <p className="text-xs text-neutral-500 mt-0.5">
-              Pre-computed development results against reference datasets.
+              {t("Pre-computed development results against reference datasets.")}
             </p>
           </div>
 
           <span className="bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-3 py-1.5 rounded-md">
-            AI Fallback: ON
+            {t("AI Fallback: ON")}
           </span>
         </div>
 
         <table className="w-full text-sm text-left text-neutral-600 border-collapse">
           <thead className="text-xs text-neutral-500 uppercase bg-neutral-50 border-b border-neutral-200">
             <tr>
-              <th className="px-4 py-3 font-semibold">Dataset</th>
-              <th className="px-4 py-3 font-semibold">Rules</th>
+              <th className="px-4 py-3 font-semibold">{t("Dataset")}</th>
+              <th className="px-4 py-3 font-semibold">{t("Rules")}</th>
               <th className="px-4 py-3 font-semibold">+ Gemini</th>
-              <th className="px-4 py-3 font-semibold">End-to-End</th>
-              <th className="px-4 py-3 font-semibold">Defect P/R</th>
+              <th className="px-4 py-3 font-semibold">{t("End-to-End")}</th>
+              <th className="px-4 py-3 font-semibold">{t("Defect P/R")}</th>
             </tr>
           </thead>
 
           <tbody className="divide-y divide-neutral-100">
             <tr className="hover:bg-neutral-50/50">
               <td className="px-4 py-3 font-medium text-neutral-900">
-                Supplied (Seed 42)
+                {t("Supplied (Seed 42)")}
               </td>
               <td className="px-4 py-3">0.9904</td>
               <td className="px-4 py-3 font-semibold text-neutral-800">
@@ -378,7 +377,7 @@ export default function InboxView({ onSelect }) {
 
             <tr className="hover:bg-neutral-50/50">
               <td className="px-4 py-3 font-medium text-neutral-900">
-                5 Unseen Seeds
+                {t("5 Unseen Seeds")}
               </td>
               <td className="px-4 py-3">—</td>
               <td className="px-4 py-3 font-bold text-blue-600">
@@ -397,7 +396,7 @@ export default function InboxView({ onSelect }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-5 border border-neutral-200 rounded-xl shadow-xs">
           <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider mb-1">
-            Total Emails
+            {t("Total Emails")}
           </p>
 
           <p className="text-3xl font-extrabold text-neutral-900">
@@ -407,7 +406,7 @@ export default function InboxView({ onSelect }) {
 
         <div className="bg-emerald-50/50 p-5 border border-emerald-200 rounded-xl shadow-xs">
           <p className="text-xs text-emerald-700 font-bold uppercase tracking-wider mb-1">
-            Clean (OK)
+            {t("Clean (OK)")}
           </p>
 
           <p className="text-3xl font-extrabold text-emerald-800">
@@ -417,7 +416,7 @@ export default function InboxView({ onSelect }) {
 
         <div className="bg-amber-50/50 p-5 border border-amber-200 rounded-xl shadow-xs">
           <p className="text-xs text-amber-700 font-bold uppercase tracking-wider mb-1">
-            Mismatches
+            {t("Mismatches")}
           </p>
 
           <p className="text-3xl font-extrabold text-amber-800">
@@ -427,7 +426,7 @@ export default function InboxView({ onSelect }) {
 
         <div className="bg-rose-50/50 p-5 border border-rose-200 rounded-xl shadow-xs">
           <p className="text-xs text-rose-700 font-bold uppercase tracking-wider mb-1">
-            Needs Review
+            {t("Needs Review")}
           </p>
 
           <p className="text-3xl font-extrabold text-rose-800">
@@ -442,7 +441,7 @@ export default function InboxView({ onSelect }) {
       {loadError && (
         <div className="mb-6 px-4 py-3 bg-rose-50 border border-rose-200 rounded-lg">
           <p className="text-sm font-bold text-rose-800">
-            Unable to load inbox
+            {t("Unable to load inbox")}
           </p>
 
           <p className="text-xs text-rose-700 mt-1">
@@ -457,7 +456,7 @@ export default function InboxView({ onSelect }) {
             }}
             className="mt-3 text-xs font-bold text-rose-700 underline"
           >
-            Retry
+            {t("Retry")}
           </button>
         </div>
       )}
@@ -481,11 +480,11 @@ export default function InboxView({ onSelect }) {
         />
 
         <span className="text-sm text-neutral-500 ml-auto font-medium">
-          Showing{" "}
+          {t("Showing")}{" "}
           <span className="font-bold text-neutral-800">
             {filtered.length}
           </span>{" "}
-          of {emails.length} items
+          {t("of")} {emails.length} {t("items")}
         </span>
       </div>
 
@@ -517,17 +516,17 @@ export default function InboxView({ onSelect }) {
                 />
               </svg>
 
-              Loading inbox...
+              {t("Loading inbox...")}
             </div>
           </div>
         ) : filtered.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <p className="text-sm font-bold text-neutral-700">
-              No emails found
+              {t("No emails found")}
             </p>
 
             <p className="text-xs text-neutral-500 mt-1">
-              Run the pipeline or change the current filters.
+              {t("Run the pipeline or change the current filters.")}
             </p>
           </div>
         ) : (
@@ -554,7 +553,7 @@ export default function InboxView({ onSelect }) {
                   </p>
 
                   <p className="text-xs text-neutral-500 mt-0.5 font-medium">
-                    {category}
+                    {t(category)}
                   </p>
                 </div>
 
@@ -565,7 +564,7 @@ export default function InboxView({ onSelect }) {
                       "text-neutral-600 bg-neutral-50 border-neutral-200"
                     }`}
                   >
-                    {status}
+                    {t(status)}
                   </span>
 
                   {/* Human-review reason */}
@@ -575,7 +574,7 @@ export default function InboxView({ onSelect }) {
                         className="text-[10px] text-rose-600 font-extrabold uppercase tracking-wider cursor-help inline-flex items-center gap-1"
                         title={detail || ""}
                       >
-                        ↳ {e.review_reason.replace(/_/g, " ")}
+                        ↳ {t(e.review_reason.replace(/_/g, " "))}
 
                         {detail && (
                           <svg
@@ -618,6 +617,7 @@ function Select({
   options,
   defaultLabel = "All",
 }) {
+  const t = useT();
   return (
     <select
       value={value}
@@ -627,8 +627,8 @@ function Select({
       {options.map((option) => (
         <option key={option} value={option}>
           {option === "ALL"
-            ? defaultLabel
-            : option.replaceAll("_", " ")}
+            ? t(defaultLabel)
+            : t(option.replaceAll("_", " "))}
         </option>
       ))}
     </select>
