@@ -1,25 +1,27 @@
 export default function Nav({ view, setView }) {
-  const tabs = [
-    { id: "inbox", label: "Inbox" },
-    { id: "review", label: "Review Queue" },
-  ];
-
   return (
-    <nav className="border-b border-neutral-200 bg-white">
-      <div className="max-w-5xl mx-auto flex gap-1 px-6">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setView(t.id)}
-            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              view === t.id
-                ? "border-neutral-900 text-neutral-900"
-                : "border-transparent text-neutral-500 hover:text-neutral-700"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+    <nav className="bg-white border-b border-neutral-200 mb-8 shadow-xs">
+      <div className="max-w-7xl mx-auto px-8 flex gap-8">
+        <button
+          onClick={() => setView("inbox")}
+          className={`py-4 text-sm font-bold border-b-2 transition-colors ${
+            view === "inbox" || view === "report"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-neutral-500 hover:text-neutral-700"
+          }`}
+        >
+          Inbox Dashboard
+        </button>
+        <button
+          onClick={() => setView("review")}
+          className={`py-4 text-sm font-bold border-b-2 transition-colors ${
+            view === "review"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-neutral-500 hover:text-neutral-700"
+          }`}
+        >
+          Review Queue
+        </button>
       </div>
     </nav>
   );

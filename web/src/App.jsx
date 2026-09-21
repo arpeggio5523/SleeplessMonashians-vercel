@@ -14,13 +14,17 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen">
-      <Nav view={view === "report" ? "inbox" : view} setView={setView} />
-      {view === "inbox" && <InboxView onSelect={openReport} />}
-      {view === "report" && (
-        <ReportView emailId={selectedEmail} onBack={() => setView("inbox")} />
-      )}
-      {view === "review" && <ReviewQueue />}
+    <div className="min-h-screen bg-neutral-50 pb-12">
+      <Nav view={view} setView={(tab) => { setView(tab); setSelectedEmail(null); }} />
+      
+      {/* Changed max-w-5xl to max-w-7xl so it spans the entire screen cleanly */}
+      <main className="max-w-7xl mx-auto px-8 w-full">
+        {view === "inbox" && <InboxView onSelect={openReport} />}
+        {view === "report" && (
+          <ReportView emailId={selectedEmail} onBack={() => setView("inbox")} />
+        )}
+        {view === "review" && <ReviewQueue onSelect={openReport} />}
+      </main>
     </div>
   );
 }

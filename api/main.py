@@ -26,6 +26,7 @@ from sdoc.core.classify import classify as rule_classify
 from sdoc.core.contract import CONFIDENCE_THRESHOLD
 from sdoc.core.pipeline import FolderSource, process_email, run
 from sdoc.core.ingest import poppler_path
+from sdoc.core.aliases import learn
 
 from api.storage import (  # noqa: I001
     get_all_results,
@@ -146,6 +147,7 @@ class ReviewRequest(BaseModel):
     action: Literal["confirm", "correct"]
     field: Optional[str] = None
     corrected_value: Optional[str] = None
+    label_seen: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -479,6 +481,9 @@ def review_email(
                     "for a correction"
                 ),
             )
+
+        if review.label_seen:
+            learn(review.field, review.label_seen)
 
     review_id = save_review(
         email_id=email_id,
