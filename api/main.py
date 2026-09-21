@@ -54,6 +54,9 @@ from api.storage import (  # noqa: I001
     get_source_email as get_stored_source_email,
     get_source_document as get_stored_source_document,
     clear_source_snapshots,
+    save_validation_run,
+    get_validation_runs,
+    clear_validation_runs,
 )
 
 
@@ -391,7 +394,7 @@ def process_inbox(request: ProcessRequest = ProcessRequest()):
             1 for result in results.values() if result.status == "OK"
         )
 
-        return {
+        response_payload = {
             "message": "Inbox processed successfully",
             "dataset": dataset_name,
             "seed": request.seed,
@@ -403,6 +406,12 @@ def process_inbox(request: ProcessRequest = ProcessRequest()):
             "llm_enabled": llm is not None,
             "evaluation": evaluation,
         }
+
+        # Generated runs are shared across browsers through the backend.
+        if evaluation is not None:
+            save_validation_run(response_payload)
+
+        return response_payload
 
     except HTTPException:
         raise
@@ -416,6 +425,34 @@ def process_inbox(request: ProcessRequest = ProcessRequest()):
     finally:
         if temp_dir is not None:
             shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# Shared validation history / reset
+# ---------------------------------------------------------------------------
+
+@app.get("/validation-runs")
+def validation_runs(limit: int = 5):
+    """Return recent generated-run scores shared by every frontend client."""
+    return {
+        "count": len(get_validation_runs(limit)),
+        "runs": get_validation_runs(limit),
+    }
+
+
+@app.post("/reset")
+def reset_to_default():
+    """
+    Restore the dashboard to the supplied hackathon dataset and clear the
+    shared generated-run history. This reset is global for every client.
+    """
+    result = process_inbox(ProcessRequest(seed=None, n=500))
+    clear_validation_runs()
+    return {
+        **result,
+        "message": "Dashboard reset to supplied dataset",
+        "reset": True,
+    }
 
 
 # ---------------------------------------------------------------------------

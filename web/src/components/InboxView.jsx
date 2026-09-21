@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   getAllEmails,
+  getValidationRuns,
   processInbox,
+  resetToDefault,
 } from "../data/reports";
 import { useT } from "../i18n";
 
@@ -20,18 +22,6 @@ const reasonDetails = {
     "Extraction confidence fell below the review threshold",
 };
 
-const LAST_PROCESS_RESULT_KEY = "sdoc:lastProcessResult";
-const RUN_HISTORY_KEY = "sdoc:runHistory";
-
-function readStoredJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 export default function InboxView({ onSelect }) {
   const t = useT();
   const [emails, setEmails] = useState([]);
@@ -47,12 +37,9 @@ export default function InboxView({ onSelect }) {
 
   const [processing, setProcessing] = useState(false);
   const [processError, setProcessError] = useState("");
-  const [processResult, setProcessResult] = useState(() =>
-    readStoredJson(LAST_PROCESS_RESULT_KEY, null)
-  );
-  const [runHistory, setRunHistory] = useState(() =>
-    readStoredJson(RUN_HISTORY_KEY, [])
-  );
+  const [processResult, setProcessResult] = useState(null);
+  const [runHistory, setRunHistory] = useState([]);
+  const [resetting, setResetting] = useState(false);
 
   // ------------------------------------------------------------
   // Inbox loading state
@@ -81,32 +68,28 @@ export default function InboxView({ onSelect }) {
     }
   }
 
+  async function loadValidationHistory() {
+    try {
+      const runs = await getValidationRuns(5);
+      setRunHistory(runs);
+      setProcessResult(runs[0] || null);
+    } catch (err) {
+      console.error("Unable to load shared validation history", err);
+    }
+  }
+
   useEffect(() => {
     loadEmails();
+    loadValidationHistory();
+
+    // Keep multiple teammates' dashboards in sync while they are open.
+    const syncId = window.setInterval(() => {
+      loadEmails();
+      loadValidationHistory();
+    }, 5000);
+
+    return () => window.clearInterval(syncId);
   }, []);
-
-  // Keep the most recent run visible when InboxView is unmounted (for
-  // example when opening Review Queue / a report) and when the page reloads.
-  useEffect(() => {
-    try {
-      if (processResult) {
-        localStorage.setItem(
-          LAST_PROCESS_RESULT_KEY,
-          JSON.stringify(processResult)
-        );
-      }
-    } catch {
-      // localStorage can be unavailable in locked-down browser modes.
-    }
-  }, [processResult]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(RUN_HISTORY_KEY, JSON.stringify(runHistory));
-    } catch {
-      // Ignore storage failures; the current session still works.
-    }
-  }, [runHistory]);
 
   // ------------------------------------------------------------
   // Run pipeline
@@ -125,21 +108,8 @@ export default function InboxView({ onSelect }) {
 
       setProcessResult(result);
 
-      if (result?.evaluation) {
-        setRunHistory((previous) =>
-          [
-            {
-              ...result,
-              runId: `${Date.now()}-${result.seed ?? "supplied"}`,
-            },
-            ...previous,
-          ].slice(0, 5)
-        );
-      }
-
-      // Reload the inbox because /process writes new results
-      // into the backend database.
-      await loadEmails();
+      // Reload shared backend state so every browser sees the same history.
+      await Promise.all([loadEmails(), loadValidationHistory()]);
 
       // Reset filters so the new dataset is easy to inspect.
       setCategoryFilter("ALL");
@@ -152,6 +122,33 @@ export default function InboxView({ onSelect }) {
       );
     } finally {
       setProcessing(false);
+    }
+  }
+
+  async function handleResetToDefault() {
+    const confirmed = window.confirm(
+      "Reset the shared dashboard to the supplied dataset and clear generated validation history for everyone?"
+    );
+
+    if (!confirmed) return;
+
+    setResetting(true);
+    setProcessError("");
+
+    try {
+      await resetToDefault();
+      setSeed("42");
+      setDatasetSize("500");
+      setCategoryFilter("ALL");
+      setStatusFilter("ALL");
+      await Promise.all([loadEmails(), loadValidationHistory()]);
+    } catch (err) {
+      console.error(err);
+      setProcessError(
+        err?.message || t("Failed to reset the dashboard.")
+      );
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -304,6 +301,15 @@ export default function InboxView({ onSelect }) {
               ) : (
                 t("Run Pipeline")
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResetToDefault}
+              disabled={processing || resetting}
+              className="min-w-[150px] px-5 py-2.5 rounded-lg text-sm font-bold border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50 disabled:bg-neutral-100 disabled:text-neutral-400 disabled:cursor-not-allowed transition-all"
+            >
+              {resetting ? t("Resetting...") : t("Reset to Default")}
             </button>
           </div>
         </div>

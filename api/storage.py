@@ -78,6 +78,24 @@ def init_db() -> None:
             """
         )
 
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS validation_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                dataset TEXT NOT NULL,
+                seed INTEGER,
+                requested_n INTEGER,
+                processed INTEGER NOT NULL,
+                ok INTEGER NOT NULL,
+                mismatches INTEGER NOT NULL,
+                needs_review INTEGER NOT NULL,
+                llm_enabled INTEGER NOT NULL,
+                evaluation_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
         conn.commit()
 
 
@@ -409,3 +427,76 @@ def clear_results() -> None:
     with _connect() as conn:
         conn.execute("DELETE FROM results")
         conn.commit()
+
+def save_validation_run(run: dict[str, Any]) -> int:
+    """Persist one generated-dataset validation result for all clients."""
+    evaluation = run.get("evaluation")
+    if not evaluation:
+        raise ValueError("validation run requires an evaluation")
+
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO validation_runs (
+                dataset, seed, requested_n, processed, ok, mismatches,
+                needs_review, llm_enabled, evaluation_json, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run.get("dataset") or "unknown",
+                run.get("seed"),
+                run.get("requested_n"),
+                int(run.get("processed") or 0),
+                int(run.get("ok") or 0),
+                int(run.get("mismatches") or 0),
+                int(run.get("needs_review") or 0),
+                1 if run.get("llm_enabled") else 0,
+                json.dumps(evaluation),
+                now,
+            ),
+        )
+        conn.commit()
+        return int(cursor.lastrowid)
+
+
+def get_validation_runs(limit: int = 5) -> list[dict[str, Any]]:
+    """Return newest shared validation runs first."""
+    limit = max(1, min(int(limit), 50))
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, dataset, seed, requested_n, processed, ok, mismatches,
+                   needs_review, llm_enabled, evaluation_json, created_at
+            FROM validation_runs
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    return [
+        {
+            "runId": str(row["id"]),
+            "dataset": row["dataset"],
+            "seed": row["seed"],
+            "requested_n": row["requested_n"],
+            "processed": row["processed"],
+            "ok": row["ok"],
+            "mismatches": row["mismatches"],
+            "needs_review": row["needs_review"],
+            "llm_enabled": bool(row["llm_enabled"]),
+            "evaluation": json.loads(row["evaluation_json"]),
+            "created_at": row["created_at"],
+        }
+        for row in rows
+    ]
+
+
+def clear_validation_runs() -> None:
+    """Clear the shared validation-history table."""
+    with _connect() as conn:
+        conn.execute("DELETE FROM validation_runs")
+        conn.commit()
+
