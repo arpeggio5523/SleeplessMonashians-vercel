@@ -29,6 +29,8 @@ const DICT = {
     // navigation
     "Inbox Dashboard": "Papan Pemuka Peti Masuk",
     "Review Queue": "Barisan Semakan",
+    "Dark mode": "Mod gelap",
+    "Light mode": "Mod cerah",
 
     // inbox and pipeline
     "Run Verification Pipeline": "Jalankan Saluran Pengesahan",
@@ -185,6 +187,8 @@ const DICT = {
     // navigation
     "Inbox Dashboard": "收件箱面板",
     "Review Queue": "审核队列",
+    "Dark mode": "深色模式",
+    "Light mode": "浅色模式",
 
     // inbox and pipeline
     "Run Verification Pipeline": "运行核验流程",

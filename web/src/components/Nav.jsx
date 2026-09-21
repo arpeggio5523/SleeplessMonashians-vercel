@@ -1,7 +1,9 @@
 import { LANGUAGES, useLanguage, useT } from "../i18n";
+import { useTheme } from "../theme";
 export default function Nav({ view, setView }) {
   const t = useT();
   const { lang, setLang } = useLanguage();
+  const { theme, toggle } = useTheme();
   return (
     <nav className="bg-white border-b border-neutral-200 mb-8 shadow-xs">
       <div className="max-w-7xl mx-auto px-8 flex items-center gap-8">
@@ -26,7 +28,17 @@ export default function Nav({ view, setView }) {
           {t("Review Queue")}
         </button>
 
-        <label className="ml-auto flex items-center gap-2 text-xs font-bold text-neutral-500">
+        <button
+          type="button"
+          onClick={toggle}
+          title={theme === "dark" ? t("Light mode") : t("Dark mode")}
+          aria-label={theme === "dark" ? t("Light mode") : t("Dark mode")}
+          className="ml-auto w-9 h-9 flex items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 transition-colors cursor-pointer"
+        >
+          {theme === "dark" ? "☀" : "☾"}
+        </button>
+
+        <label className="flex items-center gap-2 text-xs font-bold text-neutral-500">
           <span aria-hidden="true">🌐</span>
           <select
             value={lang}
