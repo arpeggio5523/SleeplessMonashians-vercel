@@ -11,6 +11,7 @@
 
 import { useState } from "react";
 import { getAmendment } from "../data/reports";
+import { useToastStore } from "../store/useToastStore";
 
 export default function AmendmentDraft({ emailId }) {
   const [draft, setDraft] = useState(null);
@@ -18,6 +19,8 @@ export default function AmendmentDraft({ emailId }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+
+  const showToast = useToastStore((state) => state.showToast);
 
   async function load() {
     setLoading(true);
@@ -45,6 +48,7 @@ export default function AmendmentDraft({ emailId }) {
   async function copy() {
     await navigator.clipboard.writeText(`${draft.subject}\n\n${body}`);
     setCopied(true);
+    showToast("Amendment email copied to clipboard!");
     setTimeout(() => setCopied(false), 1500);
   }
 
