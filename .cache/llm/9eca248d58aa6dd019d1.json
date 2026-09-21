@@ -1,0 +1,6 @@
+{
+ "subject": "Discrepancies in draft Bill of Lading",
+ "body": "Dear Partner,\n\nWe have reviewed the draft Bill of Lading against the Shipping Instruction, which serves as our authoritative reference, and found a few discrepancies that require your attention.\nSpecifically, the Consignee is listed as UAB NOVAKOPA on the draft Bill of Lading, whereas the Shipping Instruction states EAST BRIGHT FZ-LLC.\nAdditionally, the Notify Party is listed as UAB NOVAKOPA on the draft, but the Shipping Instruction specifies EAST BRIGHT FZ-LLC.\nPlease amend the draft Bill of Lading so that it matches the Shipping Instruction exactly in both instances.\n\nBest regards,\nShipping Operations",
+ "source": "llm",
+ "email_id": "email_004"
+}

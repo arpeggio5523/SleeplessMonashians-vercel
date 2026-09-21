@@ -46,6 +46,12 @@ RUN mkdir -p /app/data
 ENV SDOC_BUNDLE_PATH=/app/sdoc-hackathon-bundle
 ENV SDOC_DB_PATH=/app/data/sdoc.db
 
+# Flash-Lite: ~500 free requests/day vs ~20 for the full Flash models, and
+# indistinguishable on this task. The committed .cache/llm means a normal run
+# makes no calls at all.
+ENV SDOC_GEMINI_MODEL=gemini-3.5-flash-lite
+ENV SDOC_LLM_RPM=15
+
 ENV PORT=8080
 
 EXPOSE 8080

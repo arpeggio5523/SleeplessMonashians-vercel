@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getEmail, submitReview, retryEmailProcess, API_BASE_URL } from "../data/reports";
+import AmendmentDraft from "./AmendmentDraft";
 
 export default function ReportView({ emailId, onBack }) {
   const [data, setData] = useState(null);
@@ -74,12 +75,30 @@ export default function ReportView({ emailId, onBack }) {
     }
   }
 
+  // Prevent destructuring crashes by returning early if loading or no data
   if (loading) return <div className="p-8 text-neutral-500 font-medium">Loading {emailId}...</div>;
   if (!data) return <div className="p-8 text-rose-500">Data not found.</div>;
 
-  const isReviewNeeded = data.status === "NEEDS_REVIEW";
-  const hasComparisons = data.comparisons && data.comparisons.length > 0;
+  const {
+    classification,
+    status,
+    comparisons,
+  } = data;
+
+  const isReviewNeeded = status === "NEEDS_REVIEW";
+  const hasComparisons = comparisons && comparisons.length > 0;
   const hasFieldsToCorrect = hasComparisons && (data.review_reason === "unreadable" || data.review_reason === "missing_value");
+
+  const isComparison = classification?.category === "BL_COMPARISON";
+
+  // The brief asks for the exact phrase "No mismatch detected" when all seven fields match. 
+  // It must NOT appear on an email that was never compared - that would claim a check happened when it did not.
+  const statusLabel =
+    status === "OK"
+      ? isComparison
+        ? "No mismatch detected"
+        : "No comparison needed"
+      : status.replaceAll("_", " ");
 
   return (
     <div className="w-full flex flex-col">
@@ -90,13 +109,13 @@ export default function ReportView({ emailId, onBack }) {
         </button>
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-extrabold text-neutral-900">{emailId}</h1>
-          <span className={`px-3 py-1 rounded-full text-xs font-bold border ${isReviewNeeded ? 'bg-rose-50 text-rose-700 border-rose-200' : data.status === 'MISMATCH' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-            {data.status.replace("_", " ")}
+          <span className={`px-3 py-1 rounded-full text-xs font-bold border ${isReviewNeeded ? 'bg-rose-50 text-rose-700 border-rose-200' : status === 'MISMATCH' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+            {status.replace("_", " ")}
           </span>
         </div>
       </div>
 
-      {/* Dynamic Grid Layout: Adjust columns depending on whether comparison fields exist */}
+      {/* Dynamic Grid Layout */}
       <div className={`grid grid-cols-1 ${hasComparisons ? 'lg:grid-cols-12' : 'lg:grid-cols-1'} gap-8 items-start w-full`}>
         
         {/* LEFT COLUMN: Raw Document Context Viewer */}
@@ -120,7 +139,7 @@ export default function ReportView({ emailId, onBack }) {
             </p>
             
             {hasComparisons ? (
-              data.comparisons.map((comp) => (
+              comparisons.map((comp) => (
                  <div key={comp.field} className="p-3 bg-white border border-neutral-200 rounded-lg shadow-2xs">
                    <span className="text-xs font-bold text-blue-600 font-sans uppercase">[{comp.field}]</span>
                    <p className="mt-1 text-neutral-800 whitespace-pre-wrap">{comp[activeTab.toLowerCase()]?.source?.snippet || "Not extracted"}</p>
@@ -153,6 +172,12 @@ export default function ReportView({ emailId, onBack }) {
         {/* RIGHT COLUMN: Unified Verification & Action Workspace */}
         <div className={`${hasComparisons ? 'lg:col-span-6 flex flex-col gap-6 w-full' : 'w-full'}`}>
           
+          {status === "MISMATCH" && (
+            <div className="border border-neutral-200 rounded-xl bg-white p-6 shadow-xs">
+              <AmendmentDraft emailId={emailId} />
+            </div>
+          )}
+        
           {/* Status Alert Banner */}
           {isReviewNeeded && (
             <div className="bg-rose-50 border border-rose-200 p-5 rounded-xl shadow-xs">
@@ -186,7 +211,7 @@ export default function ReportView({ emailId, onBack }) {
             </div>
           )}
 
-          {/* Unified Comparison & Inline Correction Workspace (Only rendered if comparison fields exist) */}
+          {/* Unified Comparison & Inline Correction Workspace */}
           {hasComparisons && (
             <div className="border border-neutral-200 rounded-xl bg-white p-6 shadow-xs flex flex-col h-[740px] w-full">
               <div className="flex justify-between items-center mb-4 border-b border-neutral-100 pb-3">
@@ -195,13 +220,13 @@ export default function ReportView({ emailId, onBack }) {
                   <p className="text-xs text-neutral-500">Compare reference SI values with target BL data. Editable fields allow direct overrides.</p>
                 </div>
                 <span className="text-xs font-bold text-neutral-500 bg-neutral-100 px-2.5 py-1 rounded-md">
-                  {data.comparisons?.length || 0} Fields Checked
+                  {comparisons?.length || 0} Fields Checked
                 </span>
               </div>
 
               {/* Scrollable Field List */}
               <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                {data.comparisons?.map((field) => {
+                {comparisons?.map((field) => {
                   const isMismatched = field.status !== 'match';
                   return (
                     <div 
@@ -262,7 +287,6 @@ export default function ReportView({ emailId, onBack }) {
           )}
 
         </div>
-
       </div>
     </div>
   );
