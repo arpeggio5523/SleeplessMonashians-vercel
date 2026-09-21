@@ -25,6 +25,7 @@ from typing import Optional
 from .contract import FIELDS, DocumentExtract, ExtractedField, Source
 from .ingest import strip_non_ascii
 from .normalize import is_blank, normalize
+from sdoc.core.aliases import aliases_for
 
 # Every label variant the data can contain, ordered most specific first so
 # 'TOTAL Gross Weight (KG)' is tried before bare 'Gross Weight'.
@@ -101,6 +102,9 @@ def detect_doc_type(text: str) -> str:
             return "BL"
     return "UNKNOWN"
 
+def get_labels_for_field(field: str) -> list[str]:
+    base = LABELS.get(field, [field])
+    return list(base) + aliases_for(field)
 
 def _patterns(label: str) -> list[tuple[re.Pattern, float]]:
     esc = re.escape(label)
