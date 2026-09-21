@@ -53,6 +53,31 @@ def init_db() -> None:
             """
         )
 
+        # Source snapshots let the UI reopen generated emails/documents after
+        # the generator's temporary folder has been deleted.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS source_emails (
+                email_id TEXT PRIMARY KEY,
+                source_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS source_documents (
+                email_id TEXT NOT NULL,
+                which_doc TEXT NOT NULL,
+                path TEXT NOT NULL,
+                content BLOB,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (email_id, which_doc)
+            )
+            """
+        )
+
         conn.commit()
 
 
@@ -294,6 +319,91 @@ def update_result_after_review(
     save_result(email_id, result)
 
     return result
+
+
+def save_source_email(email: dict[str, Any]) -> None:
+    """Persist the original email record for the currently loaded dataset."""
+    email_id = email.get("email_id")
+    if not email_id:
+        return
+
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO source_emails (email_id, source_json, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(email_id)
+            DO UPDATE SET
+                source_json = excluded.source_json,
+                updated_at = excluded.updated_at
+            """,
+            (email_id, json.dumps(email), now),
+        )
+        conn.commit()
+
+
+def save_source_document(
+    email_id: str,
+    which_doc: str,
+    path: str,
+    content: Optional[bytes],
+) -> None:
+    """Persist one source attachment exactly as supplied to the pipeline."""
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO source_documents (
+                email_id, which_doc, path, content, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(email_id, which_doc)
+            DO UPDATE SET
+                path = excluded.path,
+                content = excluded.content,
+                updated_at = excluded.updated_at
+            """,
+            (email_id, which_doc, path, content, now),
+        )
+        conn.commit()
+
+
+def get_source_email(email_id: str) -> Optional[dict[str, Any]]:
+    """Return the stored source email for the current dataset."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT source_json FROM source_emails WHERE email_id = ?",
+            (email_id,),
+        ).fetchone()
+
+    return json.loads(row["source_json"]) if row else None
+
+
+def get_source_document(email_id: str, which_doc: str) -> Optional[dict[str, Any]]:
+    """Return stored attachment metadata and bytes for SI or BL."""
+    with _connect() as conn:
+        row = conn.execute(
+            """
+            SELECT path, content
+            FROM source_documents
+            WHERE email_id = ? AND which_doc = ?
+            """,
+            (email_id, which_doc),
+        ).fetchone()
+
+    if row is None:
+        return None
+
+    return {"path": row["path"], "content": row["content"]}
+
+
+def clear_source_snapshots() -> None:
+    """Remove source snapshots from the previous dataset run."""
+    with _connect() as conn:
+        conn.execute("DELETE FROM source_documents")
+        conn.execute("DELETE FROM source_emails")
+        conn.commit()
 
 def clear_results() -> None:
     with _connect() as conn:

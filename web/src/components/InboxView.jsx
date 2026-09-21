@@ -20,6 +20,18 @@ const reasonDetails = {
     "Extraction confidence fell below the review threshold",
 };
 
+const LAST_PROCESS_RESULT_KEY = "sdoc:lastProcessResult";
+const RUN_HISTORY_KEY = "sdoc:runHistory";
+
+function readStoredJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function InboxView({ onSelect }) {
   const t = useT();
   const [emails, setEmails] = useState([]);
@@ -35,8 +47,12 @@ export default function InboxView({ onSelect }) {
 
   const [processing, setProcessing] = useState(false);
   const [processError, setProcessError] = useState("");
-  const [processResult, setProcessResult] = useState(null);
-  const [runHistory, setRunHistory] = useState([]);
+  const [processResult, setProcessResult] = useState(() =>
+    readStoredJson(LAST_PROCESS_RESULT_KEY, null)
+  );
+  const [runHistory, setRunHistory] = useState(() =>
+    readStoredJson(RUN_HISTORY_KEY, [])
+  );
 
   // ------------------------------------------------------------
   // Inbox loading state
@@ -68,6 +84,29 @@ export default function InboxView({ onSelect }) {
   useEffect(() => {
     loadEmails();
   }, []);
+
+  // Keep the most recent run visible when InboxView is unmounted (for
+  // example when opening Review Queue / a report) and when the page reloads.
+  useEffect(() => {
+    try {
+      if (processResult) {
+        localStorage.setItem(
+          LAST_PROCESS_RESULT_KEY,
+          JSON.stringify(processResult)
+        );
+      }
+    } catch {
+      // localStorage can be unavailable in locked-down browser modes.
+    }
+  }, [processResult]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(RUN_HISTORY_KEY, JSON.stringify(runHistory));
+    } catch {
+      // Ignore storage failures; the current session still works.
+    }
+  }, [runHistory]);
 
   // ------------------------------------------------------------
   // Run pipeline
