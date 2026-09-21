@@ -78,3 +78,6 @@ web/dist/
 # Local frontend configuration
 web/.env.local
 web/.env.*.local
+
+# Vite pre-bundled deps cache
+web/.vite/
