@@ -41,17 +41,22 @@ from typing import Optional
 # Google retires models on a rolling basis. If this one 404s, the API error
 # names its replacement — set SDOC_GEMINI_MODEL to that, or to the floating
 # alias "gemini-flash-latest".
-DEFAULT_MODEL = "gemini-3.6-flash"
+# Flash-Lite, deliberately. The full Flash models allow roughly 20 free
+# requests per day; Flash-Lite allows roughly 500. Measured on this task the
+# two are indistinguishable - both give macro-F1 0.9982 and fix the same 7
+# emails - so the larger model buys nothing and exhausts its quota in one
+# run. Override with SDOC_GEMINI_MODEL if a model is ever retired.
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
 MODEL = os.environ.get("SDOC_GEMINI_MODEL", DEFAULT_MODEL)
 MODE = os.environ.get("SDOC_LLM_MODE", "live")          # live | mock | off
 CACHE_DIR = Path(os.environ.get("SDOC_LLM_CACHE", ".cache/llm"))
 MAX_RETRIES = 6
 
-# Free tier allows 5 requests per minute per model, so we pace ourselves at
-# one call every 60/RPM seconds rather than firing 27 at once and eating a
-# string of 429s. Raise it if you move to a paid tier or a lite model.
-RPM = int(os.environ.get("SDOC_LLM_RPM", "5"))
+# Pace ourselves rather than firing every request at once and eating a string
+# of 429s. 15/min suits Flash-Lite; drop to 5 if you switch to a full Flash
+# model, which is stricter.
+RPM = int(os.environ.get("SDOC_LLM_RPM", "15"))
 MIN_INTERVAL = 60.0 / max(RPM, 1)
 
 # Combined budget for thinking + answer. The reply is ~30 tokens, but Gemini 3

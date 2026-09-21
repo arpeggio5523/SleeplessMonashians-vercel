@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getEmail } from "../data/reports";
+import AmendmentDraft from "./AmendmentDraft";
 
 export default function ReportView({ emailId, onBack }) {
   const [result, setResult] = useState(null);
@@ -16,13 +17,39 @@ export default function ReportView({ emailId, onBack }) {
     return <div className="p-6 text-sm text-neutral-500">Loading {emailId}...</div>;
   }
 
-  const { email_id, classification, status, comparisons, notes } = result;
+  const {
+    email_id,
+    classification,
+    status,
+    comparisons,
+    notes,
+    unconfirmed_mismatches,
+  } = result;
 
   const statusStyles = {
     OK: "bg-emerald-50 text-emerald-700 border-emerald-200",
     MISMATCH: "bg-amber-50 text-amber-800 border-amber-200",
     NEEDS_REVIEW: "bg-rose-50 text-rose-700 border-rose-200",
   };
+
+  const isComparison = classification.category === "BL_COMPARISON";
+
+  // The brief asks for the exact phrase "No mismatch detected" when all seven
+  // fields match. It must NOT appear on an email that was never compared -
+  // that would claim a check happened when it did not.
+  const statusLabel =
+    status === "OK"
+      ? isComparison
+        ? "No mismatch detected"
+        : "No comparison needed"
+      : status.replaceAll("_", " ");
+
+  // Why there is no comparison table, in the email's own terms.
+  const emptyReason = !isComparison
+    ? "Not a document-comparison request, so no documents were compared."
+    : status === "NEEDS_REVIEW"
+    ? "Comparison could not be completed - see the reason above."
+    : "No fields were compared.";
 
   return (
     <div className="max-w-3xl mx-auto p-6">
@@ -36,11 +63,19 @@ export default function ReportView({ emailId, onBack }) {
           <h1 className="text-lg font-semibold text-neutral-900 mt-1">
             {classification.category.replaceAll("_", " ")}
           </h1>
+          <p className="text-xs text-neutral-400 mt-1">
+            classified with {Math.round(classification.confidence * 100)}% confidence
+            {" · "}
+            {classification.method === "llm" ? "AI fallback" : "rule"}
+            {classification.evidence ? ` · matched "${classification.evidence}"` : ""}
+          </p>
         </div>
         <span
-          className={`px-3 py-1 rounded-full text-xs font-medium border ${statusStyles[status] ?? "bg-neutral-50 text-neutral-600 border-neutral-200"}`}
+          className={`px-3 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${
+            statusStyles[status] ?? "bg-neutral-50 text-neutral-600 border-neutral-200"
+          }`}
         >
-          {status === "OK" ? "No mismatch detected" : status.replace("_", " ")}
+          {statusLabel}
         </span>
       </header>
 
@@ -48,22 +83,32 @@ export default function ReportView({ emailId, onBack }) {
         <p className="text-sm text-neutral-600 mb-6">{notes.join(" ")}</p>
       )}
 
+      {/* Fields that differ but sit behind an escalation. The system has not
+          stood behind these, so they must not look like confirmed findings. */}
+      {unconfirmed_mismatches?.length > 0 && (
+        <p className="text-sm text-neutral-500 mb-6 border-l-2 border-neutral-300 pl-3">
+          {unconfirmed_mismatches.map((f) => f.replaceAll("_", " ")).join(", ")}
+          {unconfirmed_mismatches.length === 1 ? " differs" : " differ"} between the
+          documents, but this could not be verified - a reviewer should confirm.
+        </p>
+      )}
+
       <div className="space-y-1">
         {comparisons?.map((c) => (
           <FieldRow key={c.field} comparison={c} />
         ))}
         {(!comparisons || comparisons.length === 0) && (
-          <p className="text-sm text-neutral-400 italic">
-            Not a document-comparison email, nothing to compare.
-          </p>
+          <p className="text-sm text-neutral-400 italic">{emptyReason}</p>
         )}
       </div>
+
+      {status === "MISMATCH" && <AmendmentDraft emailId={email_id} />}
     </div>
   );
 }
 
 function FieldRow({ comparison }) {
-  const { field, status, si, bl } = comparison;
+  const { field, status, si, bl, reason } = comparison;
   const [expanded, setExpanded] = useState(status === "mismatch");
   const isMismatch = status === "mismatch";
   const isUncertain = status === "uncertain";
@@ -93,6 +138,10 @@ function FieldRow({ comparison }) {
         <ValueCell label="SI" field={si} highlight={isMismatch} expanded={expanded} />
         <ValueCell label="BL" field={bl} highlight={isMismatch} expanded={expanded} />
       </div>
+
+      {isUncertain && reason && (
+        <p className="text-xs text-neutral-500 mt-2">{reason}</p>
+      )}
     </div>
   );
 }
@@ -109,7 +158,10 @@ function ValueCell({ label, field, highlight, expanded }) {
       </p>
       {expanded && field.source?.file && (
         <p className="text-xs text-neutral-400 mt-1">
-          from {field.source.file.split("/").pop()} line {field.source.line} [{field.source.label_seen}]
+          from {field.source.file.split("/").pop()} line {field.source.line} [
+          {field.source.label_seen}]
+          {field.confidence ? ` · ${field.confidence.toFixed(2)}` : ""}
+          {field.method ? ` · ${field.method}` : ""}
         </p>
       )}
     </div>

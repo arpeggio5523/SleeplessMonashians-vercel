@@ -337,6 +337,81 @@ def get_email(email_id: str):
 
 
 # ---------------------------------------------------------------------------
+# Amendment request
+# ---------------------------------------------------------------------------
+
+@app.get("/emails/{email_id}/amendment")
+def amendment_draft(email_id: str):
+    """
+    Draft the email an operator would send to have the draft BL corrected.
+
+    Only meaningful for a MISMATCH. The discrepancy is already settled
+    deterministically by compare.py; the model writes prose about it and a
+    human reads the result before sending. If the model is unavailable a
+    plain template is used, so the endpoint always answers.
+    """
+
+    stored = get_result(email_id)
+
+    if stored is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"{email_id} has not been processed yet. Run POST /process.",
+        )
+
+    if stored.get("status") != "MISMATCH":
+        raise HTTPException(
+            status_code=409,
+            detail="An amendment request only applies to a confirmed mismatch.",
+        )
+
+    try:
+        from sdoc.core.contract import (Classification, ExtractedField,
+                                        FieldComparison, Source)
+        from sdoc.llm.amend import draft_amendment
+    except Exception as exc:
+        raise HTTPException(status_code=503,
+                            detail=f"Drafting unavailable: {exc}") from exc
+
+    # rebuild just enough of the EmailResult for the drafter
+    def _field(d: dict) -> ExtractedField:
+        src = (d or {}).get("source") or {}
+        return ExtractedField(
+            value=(d or {}).get("value"), raw=(d or {}).get("raw"),
+            confidence=(d or {}).get("confidence", 0.0),
+            source=Source(file=src.get("file", ""), line=src.get("line", -1),
+                          label_seen=src.get("label_seen", ""),
+                          snippet=src.get("snippet", "")),
+        )
+
+    class _R:
+        email_id = stored["email_id"]
+        status = stored["status"]
+        comparisons = [
+            FieldComparison(field=c["field"], status=c["status"],
+                            si=_field(c.get("si")), bl=_field(c.get("bl")))
+            for c in stored.get("comparisons", [])
+        ]
+        si = bl = None
+
+    source_email = next(
+        (e for e in get_source().emails() if e["email_id"] == email_id), None
+    )
+
+    draft = draft_amendment(_R, source_email)
+
+    if draft is None:
+        raise HTTPException(status_code=409,
+                            detail="No confirmed discrepancy to write about.")
+
+    return {
+        "email_id": email_id,
+        "defect_fields": stored.get("defect_fields", []),
+        **draft,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Review queue
 # ---------------------------------------------------------------------------
 

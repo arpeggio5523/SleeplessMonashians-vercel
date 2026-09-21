@@ -10,14 +10,24 @@ async function request(path, options = {}) {
 
   if (!response.ok) {
     const detail = data?.detail;
-    throw new Error(
+    const error = new Error(
       typeof detail === "string"
         ? detail
         : `Request failed (${response.status})`
     );
+    // Keep the status so callers can tell "endpoint missing" from
+    // "endpoint said no".
+    error.status = response.status;
+    throw error;
   }
 
   return data;
+}
+
+export async function getAmendment(emailId) {
+  // Draft of the email asking the counterparty to correct the draft BL.
+  // Only meaningful on a MISMATCH; the API answers 409 otherwise.
+  return request(`/emails/${emailId}/amendment`);
 }
 
 export async function getAllEmails() {
