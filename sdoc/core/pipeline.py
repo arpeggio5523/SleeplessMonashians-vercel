@@ -119,6 +119,18 @@ def process_email(email: dict, source: EmailSource,
     result.comparisons = compare_documents(result.si, result.bl)
     result.status, result.review_reason = decide(result.comparisons)
 
+    # A scanned document is always escalated as `unreadable`, whether or not
+    # OCR recovered anything. The comparisons stay populated so the reviewer
+    # gets a pre-filled form, but the reason code must not depend on whether
+    # tesseract happens to be installed on this machine.
+    if "ocr" in (result.si.ingest_method, result.bl.ingest_method):
+        result.status, result.review_reason = "NEEDS_REVIEW", "unreadable"
+        result.notes.append(
+            "Scanned document. The values below were recovered by OCR and are "
+            "suggestions only - they were not compared. Please confirm or "
+            "correct them.")
+        return result
+
     if result.status == "MISMATCH":
         names = ", ".join(result.defect_fields)
         result.notes.append(f"Discrepancy found in: {names}.")

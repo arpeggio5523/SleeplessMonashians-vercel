@@ -64,6 +64,7 @@ OTHER_MARKERS = ("COMMERCIAL INVOICE", "PACKING LIST", "CERTIFICATE OF ORIGIN",
                  "ARRIVAL NOTICE", "DELIVERY ORDER")
 
 CONF_COLON, CONF_WIDE, CONF_WRAP, CONF_TIGHT = 0.95, 0.85, 0.80, 0.70
+OCR_CONFIDENCE_CAP = 0.50   # below contract.CONFIDENCE_THRESHOLD (0.60)
 
 # Every label string we know about, for detecting when a "value" captured by a
 # loose pattern is really just the tail of a longer label.
@@ -241,6 +242,16 @@ def extract_document(text: str, path: str, ingest_method: str = "text",
                 )
         except Exception as e:
             doc.warnings.append(f"llm fallback failed: {e}")
+
+    # OCR can suggest, never decide. Capped below the 0.60 trust threshold, so
+    # every OCR-derived field is 'uncertain' and the email escalates with the
+    # values pre-filled for a person. Without this, misreads such as
+    # 128,544 -> 128.544 are compared as fact and fabricate discrepancies.
+    if doc.ingest_method == "ocr":
+        for f in doc.fields.values():
+            if f.present:
+                f.confidence = min(f.confidence, OCR_CONFIDENCE_CAP)
+                f.method = "ocr"
 
     still_missing = [f for f in FIELDS if not doc.fields[f].present]
     if still_missing:

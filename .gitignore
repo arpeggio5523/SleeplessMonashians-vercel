@@ -81,3 +81,5 @@ web/.env.*.local
 
 # Vite pre-bundled deps cache
 web/.vite/
+# npm, wherever it gets run by accident
+node_modules/

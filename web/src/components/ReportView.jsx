@@ -19,7 +19,10 @@ export default function ReportView({ emailId, onBack }) {
         if (res.comparisons) {
           const initialValues = {};
           res.comparisons.forEach((comp) => {
-            initialValues[comp.field] = comp.bl?.raw || comp.bl?.value || "";
+            // Prefer the BL's value; if the BL side has nothing (typical when OCR
+            // missed a field), offer the SI's as the likeliest intended value.
+            initialValues[comp.field] =
+              comp.bl?.raw || comp.bl?.value || comp.si?.raw || comp.si?.value || "";
           });
           setCorrections(initialValues);
         }
@@ -161,6 +164,15 @@ export default function ReportView({ emailId, onBack }) {
               </div>
             )}
 
+            {data[activeTab.toLowerCase()]?.readable !== false &&
+              data[activeTab.toLowerCase()]?.ingest_method === "ocr" && (
+               <p className="text-amber-800 font-sans font-bold mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                 Scanned document, read by OCR. Values have been pre-filled but were
+                 not compared - OCR misreads look plausible, so please check each one
+                 against the original.
+               </p>
+            )}
+
             {data[activeTab.toLowerCase()]?.readable === false && (
                <p className="text-rose-600 font-sans font-bold mt-4 p-4 bg-rose-50 border border-rose-200 rounded-lg">
                  ⚠️ Document is unreadable or unsupported format. Please review original attachment manually.
@@ -248,12 +260,22 @@ export default function ReportView({ emailId, onBack }) {
                         {/* SI Reference (Read-only) */}
                         <div>
                           <span className="text-neutral-400 text-[10px] font-bold uppercase tracking-wider block mb-1">SI (Reference)</span>
-                          <span className="font-semibold text-neutral-900 block truncate">{field.si?.raw || field.si?.value || "—"}</span>
+                          <span className="font-semibold text-neutral-900 block truncate">
+                            {field.si?.raw || field.si?.value || "—"}
+                            {field.si?.method === "ocr" && (
+                              <span className="ml-1.5 text-[10px] font-bold text-amber-600">OCR</span>
+                            )}
+                          </span>
                         </div>
 
                         {/* BL Target / Editable Input */}
                         <div>
-                          <span className="text-neutral-400 text-[10px] font-bold uppercase tracking-wider block mb-1">BL (Target Value)</span>
+                          <span className="text-neutral-400 text-[10px] font-bold uppercase tracking-wider block mb-1">
+                            BL (Target Value)
+                            {field.bl?.method === "ocr" && (
+                              <span className="ml-1.5 text-amber-600">· OCR, verify</span>
+                            )}
+                          </span>
                           {corrections[field.field] !== undefined ? (
                             <input 
                               type="text" 

@@ -126,10 +126,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(DOCKER / "server"))
 
 try:
-    from sdoc.core.ingest import poppler_path as _pp
-    POPPLER_AT = _pp()
+    from sdoc.core.ingest import poppler_info as _pi
+    POPPLER_INFO = _pi()
 except Exception:
-    POPPLER_AT = shutil.which("pdftotext")
+    POPPLER_INFO = {"path": shutil.which("pdftotext"), "version": None,
+                    "skipped": []}
+POPPLER_AT = POPPLER_INFO.get("path")
 HAS_POPPLER = POPPLER_AT is not None
 
 # Expected scores differ by extractor. poppler reconstructs PDF columns
@@ -166,8 +168,12 @@ def step_environment() -> bool:
     if not ok:
         note("fix: pip install -r requirements.txt")
 
+    shown = (f"{POPPLER_INFO.get('version')} " if POPPLER_INFO.get("version") else "")
     check("poppler available", True,
-          (POPPLER_AT or "no (using pdfplumber)")[-42:], "optional")
+          (shown + (POPPLER_AT or "no (using pdfplumber)"))[-42:], "optional")
+    for bad in POPPLER_INFO.get("skipped") or []:
+        note(f"ignored non-poppler pdftotext: {bad}")
+        note("  (MiKTeX and xpdf ship one; its layout causes false alarms)")
     if not HAS_POPPLER:
         note("without poppler the score is ~0.013 lower; the container installs it.")
         note("unzip poppler under your home folder and it is found automatically,")
@@ -251,7 +257,7 @@ def step_tests() -> bool:
     except ImportError:
         results.append((SKIP, "pytest", "not installed"))
         print(f"  [{SKIP}] {'pytest':<42} {'not installed':<22} "
-              "expected 46 passed")
+              "expected 50 passed")
         note("pip install pytest   (not counted as a failure)")
         return True
 
@@ -259,7 +265,7 @@ def step_tests() -> bool:
                        capture_output=True, text=True)
     out = (p.stdout + p.stderr).strip().split("\n")[-1][:60]
     ok = p.returncode == 0
-    check("pytest", ok, out, "46 passed")
+    check("pytest", ok, out, "50 passed")
     if not ok:
         note("run 'python -m pytest -q' for detail")
     return ok

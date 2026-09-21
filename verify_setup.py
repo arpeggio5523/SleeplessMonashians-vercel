@@ -146,12 +146,17 @@ for mod, pkg, why in [("pdfplumber", "pdfplumber", "PDF attachments (28 files)")
             f"pip install {pkg}")
 
 try:
-    from sdoc.core.ingest import poppler_path
-    _pp = poppler_path()
+    from sdoc.core.ingest import poppler_info
+    _info = poppler_info()
 except Exception:
-    _pp = shutil.which("pdftotext")
+    _info = {"path": shutil.which("pdftotext"), "version": None, "skipped": []}
+_pp = _info.get("path")
+for _bad in _info.get("skipped") or []:
+    warn(f"ignored a non-poppler pdftotext: {_bad}",
+         "MiKTeX and xpdf ship a binary of the same name. Its column layout\n"
+         "       differs and produced false alarms on this data, so it is skipped.")
 if _pp:
-    ok(f"poppler found — {_pp}")
+    ok(f"poppler {_info.get('version') or ''} found — {_pp}")
 else:
     warn("poppler not found — using pdfplumber instead",
          "Optional, worth ~0.013. The container installs poppler-utils.\n"
